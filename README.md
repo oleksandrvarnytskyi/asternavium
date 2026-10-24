@@ -1,0 +1,51 @@
+# AsterAvium
+
+Modular platform for astrology, numerology and traditional knowledge systems: deterministic
+calculation engines, a structured knowledge base and an AI interpretation layer.
+
+The MVP is an API-first AI chat over Jyotisha and the Slavic symbolic traditions (Bukvitsa).
+See [docs/asteravium-mvp-concise-plan.md](docs/asteravium-mvp-concise-plan.md) and the
+[detailed specification](docs/asteravium-mvp-specification.md).
+
+## Requirements
+
+- Python 3.13
+- [uv](https://docs.astral.sh/uv/)
+
+## Getting started
+
+```sh
+make install              # uv sync + pre-commit hooks
+cp .env.example .env      # then set ASTERAVIUM_SOURCE_URL
+make run                  # http://127.0.0.1:8000/docs
+```
+
+## Development
+
+| Command          | What it does                                  |
+| ---------------- | --------------------------------------------- |
+| `make lint`      | ruff lint and format check                    |
+| `make format`    | auto-fix lint issues and format               |
+| `make typecheck` | mypy in strict mode                           |
+| `make test`      | pytest with coverage                          |
+| `make check`     | everything CI runs                            |
+
+Project conventions are in [CLAUDE.md](CLAUDE.md).
+
+## Layout
+
+```
+src/app/
+├── main.py      # create_app() factory and composition root
+├── core/        # settings, JSON logging, errors, request context
+├── api/         # /health and versioned routers under /v1
+└── schemas/     # Pydantic request/response models
+tests/           # mirrors src/app: api/ and unit/
+```
+
+## Licence
+
+AsterAvium is free software under the [GNU AGPL-3.0-or-later](LICENSE); third-party notices
+are in [NOTICE](NOTICE). If you run a modified version as a network service, you must offer
+its source code to its users. The running service publishes its source URL at
+`GET /v1/about`.

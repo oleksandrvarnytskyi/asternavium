@@ -24,10 +24,10 @@ class LogLevel(StrEnum):
 
 
 class Settings(BaseSettings):
-    """Runtime configuration; every field maps to an ``ASTERAVIUM_``-prefixed env variable."""
+    """Runtime configuration; every field maps to an ``ASTERNAVIUM_``-prefixed env variable."""
 
     model_config = SettingsConfigDict(
-        env_prefix="ASTERAVIUM_",
+        env_prefix="ASTERNAVIUM_",
         env_file=".env",
         extra="forbid",
         frozen=True,

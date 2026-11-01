@@ -1,4 +1,4 @@
-# AsterAvium MVP: Specification and Step-by-Step Implementation
+# AsterNavium MVP: Specification and Step-by-Step Implementation
 
 Oct 22, 2026
 
@@ -37,7 +37,7 @@ Next in order: Western astrology and numerology, then further traditions.
 
 ### Assumptions to confirm
 
-- Until the production web client exists, the API is exercised through Swagger UI (from Phase 2) and a Gradio test client (from Phase 3).
+- Until the production web client exists, the API is exercised through Swagger UI (from Phase 1) and a Gradio test client (from Phase 2).
 - Launch language is English; the assistant can answer in the user's language, but the glossary and prompts are English-only.
 - Team of one backend developer; the production web client and Bukvitsa content curation need extra capacity.
 
@@ -60,7 +60,8 @@ Your proposed stack holds up. The main additions are Amazon Cognito for OAuth2/J
 | AI orchestration | LangChain + LangGraph | LangChain for models, prompts, tools; LangGraph for the agent graph, state and checkpointing |
 | LLM provider | Amazon Bedrock, swappable via LangChain | IAM auth, no API keys, data stays in AWS. Direct Anthropic/OpenAI API is the alternative |
 | LLM observability | LangSmith | Traces, prompt versions, datasets and evals |
-| Compute | AWS Lambda (container image) + Lambda Web Adapter | FastAPI runs unchanged; image avoids the zip size limit that LangChain dependencies hit |
+| Compute | AWS Lambda (container image, `arm64`) + Lambda Web Adapter | FastAPI runs unchanged; image avoids the zip size limit that LangChain dependencies hit; Graviton (`arm64`) costs less per GB-second than `x86_64` |
+| Region | `eu-central-1` (Frankfurt) | Both AWS accounts; check Bedrock model availability there before Phase 3 |
 | API entry | API Gateway (REST API) | Supports response streaming since Nov 2025, so SSE chat is possible later |
 | Authentication | Amazon Cognito user pool | OAuth2 authorization code + PKCE, social login, JWT access tokens |
 | Database | DynamoDB, on-demand | Single-table design for app data; separate table for LangGraph checkpoints |
@@ -71,10 +72,10 @@ Your proposed stack holds up. The main additions are Amazon Cognito for OAuth2/J
 | Secrets, config | Secrets Manager, SSM Parameter Store | Stripe, LangSmith, FCM keys; non-secret config |
 | IaC | Terraform in a separate repo | S3 remote state with native locking; modules + `dev`/`prod` environments |
 | CI/CD | GitHub Actions with AWS OIDC (assumed) | No long-lived AWS keys. CodePipeline is the alternative |
-| Monitoring | Datadog | Lambda extension, `ddtrace`, JSON logs; monitors and dashboards via the Datadog Terraform provider |
+| Monitoring | Datadog, EU site (`datadoghq.eu`) | Lambda extension, `ddtrace`, JSON logs; monitors and dashboards via the Datadog Terraform provider. Set up in Phase 6, after authentication; until then, local console logs (Phases 1 to 3), then CloudWatch Logs and the built-in Lambda and API Gateway metrics |
 | Quality | pytest, pytest-asyncio, httpx, moto, ruff, mypy, pre-commit | Fake chat models for deterministic LLM tests |
 
-**Web clients:** FastAPI's built-in Swagger UI from Phase 2 (Cognito sign-in from Phase 5), a Gradio test client from Phase 3 (dev only), and React with assistant-ui for the production release after the MVP.
+**Web clients:** FastAPI's built-in Swagger UI from Phase 1 (Cognito sign-in from Phase 5), a Gradio test client from Phase 2 (local, then `dev` only from Phase 4), and React with assistant-ui for the production release after the MVP.
 
 ### Key decisions
 
@@ -92,7 +93,7 @@ Your proposed stack holds up. The main additions are Amazon Cognito for OAuth2/J
 
 A chat request enters through API Gateway, is authenticated with a Cognito JWT, and runs the LangGraph agent inside one FastAPI Lambda, which reads and writes DynamoDB and calls the LLM. Stripe webhooks arrive through the same API; notifications run on a separate asynchronous path.
 
-There are three repositories: `asteravium` (application code and the image pipeline) and `asteravium-infra` (Terraform). The third, asteravium-bukvitsa, holds the Bukvitsa knowledge service, which the API calls over HTTPS. Terraform owns the infrastructure; the application pipelines only ship new images.
+There are three repositories: `asternavium` (application code and the image pipeline) and `asternavium-infra` (Terraform). The third, asternavium-bukvitsa, holds the Bukvitsa knowledge service, which the API calls over HTTPS. Terraform owns the infrastructure; the application pipelines only ship new images.
 
 ### Bukvitsa service
 
@@ -100,16 +101,16 @@ The Bukvitsa module, covering the Slavic symbolic traditions, is a separate serv
 
 - **Interface:** a small read-only HTTPS API over curated entries (search by keyword or topic, get one entry by ID). Each entry returns its text, language, sources and a note on how reliable the source is, so the agent can cite it and separate source-based statements from interpretation.
 - **Calling it:** the main API has a `bukvitsa_client` in `integrations/` and exposes it to the agent as a tool. Calls use IAM authentication or a service key, with a short timeout; if the service is down, the agent says the Bukvitsa content is unavailable instead of inventing an answer.
-- **Hosting (MVP):** the same pattern as the main API: Lambda container image with its own pipeline and Terraform module in the infra repo, in both `dev` and `prod`. Start with versioned, validated content files bundled with the service; move to a database or retrieval later if the library outgrows that.
+- **Hosting (MVP):** runs locally while it is built in Phase 3; from Phase 4, the same pattern as the main API: Lambda container image with its own pipeline and Terraform module in the infra repo, in `dev` first (`prod` follows in Phase 8). Start with versioned, validated content files bundled with the service; move to a database or retrieval later if the library outgrows that.
 - **Content quality:** a schema check in CI rejects entries without a source; the content version is returned with every response.
 - **Licensing:** the service uses no Swiss Ephemeris code and talks to the main API only over HTTPS, so it is generally treated as a separate work. That is a legal question, not a certainty; see section 14.
 
 ## 4. FastAPI project structure
 
-The app repo (`asteravium`) uses a `src/` layout with strict layering: routers call services, services call repositories, agents and integrations, and the calculation engines in `domain/` stay pure Python with no AWS or LLM imports. That separation is what lets new traditions be added as modules later.
+The app repo (`asternavium`) uses a `src/` layout with strict layering: routers call services, services call repositories, agents and integrations, and the calculation engines in `domain/` stay pure Python with no AWS or LLM imports. That separation is what lets new traditions be added as modules later.
 
 ```
-asteravium/
+asternavium/
 ├── pyproject.toml            # uv-managed, ruff + mypy + pytest config
 ├── uv.lock
 ├── Dockerfile                # Lambda container image + Lambda Web Adapter
@@ -146,7 +147,7 @@ asteravium/
 - API versioned under `/v1`; one router per resource; no business logic in routers.
 - Dependency injection through `Depends` so tests can swap repositories, the LLM and Stripe for fakes.
 - One error model (`{code, message, request_id}`) and a global exception handler; no stack traces to clients.
-- Request ID middleware; structured JSON logging that carries `request_id`, `session_id`, hashed `user_id` and the Datadog trace ID.
+- Request ID middleware; structured JSON logging that carries `request_id`, `session_id`, hashed `user_id` and, from Phase 6, the Datadog trace ID.
 - Lambda functions share one image: the API function and the workers differ only by command or handler.
 
 ## 5. API design
@@ -263,7 +264,7 @@ The plan split above is a proposal; the mechanism enforces whatever the table sa
 - **FCM** tokens registered via `POST /v1/notifications/devices`; invalid tokens are removed when FCM reports them.
 - Every email carries an unsubscribe link, which updates `NOTIFPREFS`. Downgrade or cancellation automatically stops premium-only notifications because the worker re-checks entitlements at send time.
 
-SES starts in sandbox mode; request production access early, since approval can take a few days.
+SES starts in sandbox mode; request production access at the start of Phase 8, since approval can take a few days.
 
 ## 9. Monetization
 
@@ -296,10 +297,10 @@ A freemium model with a daily request quota and premium-only features. All numbe
 
 ## 10. Infrastructure and CI/CD
 
-Infrastructure lives in its own repo (`asteravium-infra`) so that cloud changes have their own review and approval path. The infra repo and the service repos (asteravium and asteravium-bukvitsa) meet through one contract: Terraform creates the Lambda functions and outputs their names; each service pipeline only pushes images and updates its own function code.
+Infrastructure lives in its own repo (`asternavium-infra`) so that cloud changes have their own review and approval path. The infra repo and the service repos (asternavium and asternavium-bukvitsa) meet through one contract: Terraform creates the Lambda functions and outputs their names; each service pipeline only pushes images and updates its own function code.
 
 ```
-asteravium-infra/
+asternavium-infra/
 ├── bootstrap/            # state bucket, GitHub OIDC roles (applied once, per account)
 ├── modules/
 │   ├── api/              # ECR, Lambda, API Gateway, WAF, custom domain + ACM
@@ -317,13 +318,14 @@ asteravium-infra/
 
 ### Principles
 
+- Region `eu-central-1` (Frankfurt) for every resource in both accounts; Lambda functions run on `arm64`.
 - Separate AWS accounts for `dev` and `prod` (AWS Organizations); one state file per environment in S3 with native lockfile locking and versioning.
 - Lambda resources use `ignore_changes` on the image URI; the app pipeline deploys new image versions and moves a `live` alias, which allows instant rollback.
 - Least-privilege IAM: the API role can reach only its tables, its secrets and the chosen Bedrock models.
 - Secret values are never in Terraform state: Terraform creates the secret containers; values are set out-of-band.
 - Pre-merge checks: `terraform fmt`, `validate`, `tflint`, a security scanner (Trivy or Checkov), and a `plan` posted to the pull request.
 
-### Application pipeline (`asteravium`)
+### Application pipeline (`asternavium`)
 
 1. **Pull request:** ruff, mypy, pytest with coverage gate, dependency audit, Docker build.
 2. **Merge to main:** build image, push to ECR (tagged by commit SHA), deploy to `dev`, run smoke tests.
@@ -333,7 +335,7 @@ GitHub Actions authenticates to AWS with OIDC roles from `bootstrap/`; no stored
 
 ### Environments (dev and prod)
 
-The same image is promoted from `dev` to `prod`; only variables and secrets differ. Terraform state and secrets are separate per environment. In the infra repo, pull requests run `plan` for both environments, and a merge applies `dev` automatically while `prod` waits for approval of the reviewed plan.
+The same image is promoted from `dev` to `prod`; only variables and secrets differ. All prod setup is done in the last phase (Phase 8), after the whole MVP is implemented and tested in dev. Terraform state and secrets are separate per environment. In the infra repo, pull requests run `plan` for both environments, and a merge applies `dev` automatically while `prod` waits for approval of the reviewed plan.
 
 | Aspect | dev | prod |
 | --- | --- | --- |
@@ -351,6 +353,8 @@ The same image is promoted from `dev` to `prod`; only variables and secrets diff
 ## 11. Observability and testing
 
 ### Datadog and LangSmith
+
+Datadog (EU site, `datadoghq.eu`) is set up in Phase 6, after authentication. Until then, the app's JSON logs, which already carry request IDs, go to the console while Phases 1 to 3 run locally, and to CloudWatch Logs from Phase 4, together with the built-in Lambda and API Gateway metrics.
 
 - **Datadog:** the Lambda extension and `ddtrace` provide APM traces across API Gateway, Lambda, DynamoDB and outbound calls; logs are structured JSON with a shared request and trace ID.
 - **Custom metrics:** `llm.tokens.input/output`, `llm.latency`, `llm.cost_estimate`, `quota.exceeded`, `stripe.webhook.failed`, `notifications.sent/failed`, `signups`, `upgrades`.
@@ -374,30 +378,22 @@ Aim for 80% coverage on `services/` and `domain/`; do not chase coverage on glue
 
 ## 12. Step-by-step implementation
 
-Nine phases, built so that every phase ends with something deployed and testable in `dev`. The order is: core functionality first (data layer, chat and the Jyotisha engine), then the Bukvitsa service, then authentication, payments and notifications, then hardening. The phases assume one backend developer working mostly in sequence.
+Nine phases. Phases 1 to 3 build the core functionality (data layer and sessions, chat and the Jyotisha engine, then the Bukvitsa service) and run it locally; Phase 4 sets up AWS and deploys everything built so far to `dev`; from then on, every phase ends with something deployed and testable in `dev`. After the foundation come authentication, observability and payments, notifications, then hardening. The phases assume one backend developer working mostly in sequence.
+
+**Local development until Phase 4.** The app runs on the developer's machine against a personal AWS account, accessed with an access-key profile, in `eu-central-1`. That account is used only for Amazon Bedrock and for on-demand DynamoDB tables named `asternavium-local-*`, which a script in the app repository creates with the same keys, indexes and TTL as the Terraform `data` module will. Tests never call AWS: they use moto, and LLM tests use fake chat models. Phase 4 replaces this setup with AWS Organizations, IAM Identity Center and Terraform, following best practices, and retires the personal account from the project.
 
 ### Phase 0. Decisions and setup
 
-1. Confirm the open decisions in section 13 (Stripe legal entity, Jyotisha settings, Bukvitsa source scope, CI system), and start curating Bukvitsa sources, which continues in parallel through Phase 4. Also decide what is published: the application repository goes public under the AGPL-3.0 (section 14), so the Terraform repo and the Bukvitsa service need an explicit decision on what is public and under which licence.
-2. Create AWS accounts or an Organization for `dev` and `prod`; create the repos, branch protection and PR templates.
+1. Confirm the open decisions in section 13 (Stripe legal entity, Jyotisha settings, Bukvitsa source scope, CI system), and start curating Bukvitsa sources, which continues in parallel through Phase 3. Also decide what is published: the application repository goes public under the AGPL-3.0 (section 14), so the Terraform repo and the Bukvitsa service need an explicit decision on what is public and under which licence.
+2. Create the repos, branch protection and PR templates.
 3. `uv init`, ruff, mypy, pytest, pre-commit; Makefile with `lint`, `test`, `run`.
+4. App skeleton: app factory, settings, JSON logging, error model, request ID middleware, `GET /health`, and `GET /v1/about` as the source link, with the AGPL-3.0 licence file and notices (section 14).
 
-**Done when:** `make test` passes on an empty project in CI.
+**Done when:** `make test` passes in CI.
 
-### Phase 1. Foundation and first deploy
+### Phase 1. Data layer and sessions (local)
 
-1. Infra repo: `bootstrap/` (state bucket, OIDC roles), then `dev` with ECR, Lambda, API Gateway and WAF.
-2. App: app factory, settings, JSON logging, error model, request ID middleware, `GET /health`.
-3. Dockerfile with Lambda Web Adapter; pipeline builds, pushes and deploys the image.
-4. Datadog extension and a first dashboard; LangSmith project created.
-
-**Done when:** a commit to `main` deploys `/health` to `dev` and traces appear in Datadog.
-
-**Both environments from the start:** create the `prod` account skeleton in this phase (state, OIDC role, pipeline with manual approval) and deploy `/health` to it. Later phases only add features; Phase 8 completes `prod` with live-mode services such as Stripe live keys and SES production access. Also in this phase, add the AGPL-3.0 licence file, notices and source link to the application repository (section 14), before any public service is live.
-
-### Phase 2. Data layer and sessions
-
-1. Terraform `data` module: app table, GSI, TTL, PITR, KMS.
+1. Local tables: a script creates the `asternavium-local-app` table (keys, GSI and TTL as in section 7) in the personal AWS account; table names come from settings, so Phase 4 only changes configuration.
 2. Repositories for profile, subscription, session, message, quota; moto-based tests.
 3. Session endpoints (list, history, rename, delete) with ownership checks; `PUT /v1/profile`; account deletion.
 4. Temporary dev identity: `get_current_user` reads a test user from an `X-Dev-User` header when the environment is `dev`, so sessions can be built and tested before Cognito exists. It is removed in Phase 5, and a test asserts it is disabled in `prod`.
@@ -406,48 +402,61 @@ Nine phases, built so that every phase ends with something deployed and testable
 
 **Web client from this phase:** Swagger UI (`/docs`), enabled in `dev` and disabled in `prod`. It uses the dev identity until Phase 5 adds the Cognito Authorize button.
 
-### Phase 3. AI core: chat, prompts, memory
+### Phase 2. AI core: chat, prompts, memory (local)
 
-1. LLM factory (`init_chat_model`) with Bedrock; model and limits come from settings.
-2. Jyotisha engine on Swiss Ephemeris (pyswisseph, or its community fork pysweph, which keeps the same import name): the library supplies planetary positions, sidereal modes and houses; the project adds nakshatras and dasha periods, validated with golden tests against a reference chart tool. The library is a C extension, so add the C build tools to the Docker image.
-3. LangGraph agent: system prompt that enforces the platform's transparency and disclaimer rules, tools for the Jyotisha engine and the glossary, `DynamoDBSaver` checkpointer, context trimming and summary. The Bukvitsa tool is added in Phase 4.
+1. LLM factory (`init_chat_model`) with Bedrock in the personal AWS account (model access enabled in `eu-central-1`); model and limits come from settings.
+2. Jyotisha engine on Swiss Ephemeris (pyswisseph, or its community fork pysweph, which keeps the same import name): the library supplies planetary positions, sidereal modes and houses; the project adds nakshatras and dasha periods, validated with golden tests against a reference chart tool. The library is a C extension, so the Docker image in Phase 4 needs the C build tools.
+3. LangGraph agent: system prompt that enforces the platform's transparency and disclaimer rules, tools for the Jyotisha engine and the glossary, `DynamoDBSaver` checkpointer on a local `asternavium-local-checkpoints` table (added to the table script), context trimming and summary. The Bukvitsa tool is added in Phase 3.
 4. `POST /v1/chat` using the chat turn sequence from section 7 (the quota and plan checks arrive in Phase 6); `GET /v1/prompts` serving versioned bubble prompts.
-5. LangSmith tracing, golden dataset (about 30 questions), first eval run.
+5. LangSmith project, tracing, golden dataset (about 30 questions), first eval run.
 
-**Done when:** a test user holds two parallel sessions, each remembers its own context, and history survives a cold start.
+**Done when:** a test user holds two parallel sessions, each remembers its own context, and history survives an app restart.
 
-**Web client from this phase:** a Gradio test client in its own folder (`tools/gradio_client/`), `dev` only, calling the `dev` API with the dev identity (a Cognito token from Phase 5). Hosting: try Lambda first (container image, Function URL with response streaming, reserved concurrency of 1) as a one-day spike at the start of this phase. If Gradio's streaming or session state misbehaves there, fall back to Fargate with 0.25 vCPU and 1 GB, roughly $10 a month if always on and less with a schedule that stops it outside working hours (rates from a May 2026 article; check current AWS pricing). App Runner is not an option because AWS closed it to new customers. Running Gradio locally against the dev API stays the free alternative.
+**Web client from this phase:** a Gradio test client in its own folder (`tools/gradio_client/`), run locally against the local API with the dev identity (a Cognito token from Phase 5). It is hosted in `dev` from Phase 4.
 
-### Phase 4. Bukvitsa service
+### Phase 3. Bukvitsa service (local)
 
-1. New repository `asteravium-bukvitsa`: a small read-only API over curated, sourced entries (search, get one entry by ID); a schema check in CI rejects entries without a source.
-2. Its own pipeline and a Terraform `bukvitsa` module in the infra repo, in both `dev` and `prod`; calls are authenticated with IAM or a service key.
-3. A `bukvitsa_client` in the main API and an agent tool that returns the entry with its source and reliability note; if the service is down, the agent says the content is unavailable instead of inventing an answer.
-4. Load the first curated content set agreed in Phase 0 and add Bukvitsa questions to the LangSmith golden dataset.
+1. New repository `asternavium-bukvitsa`: a small read-only API over curated, sourced entries (search, get one entry by ID); a schema check in CI rejects entries without a source. It runs locally next to the main API.
+2. A `bukvitsa_client` in the main API and an agent tool that returns the entry with its source and reliability note; if the service is down, the agent says the content is unavailable instead of inventing an answer. Locally, calls use a service key from settings; the authentication used in AWS (IAM or service key) is decided in Phase 4.
+3. Load the first curated content set agreed in Phase 0 and add Bukvitsa questions to the LangSmith golden dataset.
 
 **Done when:** a Bukvitsa question in chat returns a sourced answer, and the agent degrades gracefully when the service is stopped.
 
+### Phase 4. Foundation and first deploy
+
+1. AWS setup: an AWS Organization with the `dev` account, an IAM Identity Center admin user with MFA and an SSO CLI profile, and a budget alert. This replaces the personal account's access keys for project work.
+2. Infra repo: `bootstrap/` (state bucket, OIDC roles), then `dev` with ECR, Lambda, API Gateway and WAF; the `data` module (app table, checkpoints table, GSI, TTL, PITR, KMS), which replaces the local table script; secrets; and the `bukvitsa` module. The API role reaches only its tables, its secrets and the chosen Bedrock models.
+3. Dockerfile with Lambda Web Adapter (`arm64` image, with the C build tools for Swiss Ephemeris); pipeline builds, pushes and deploys the image. The Bukvitsa service gets its own image and pipeline the same way.
+4. CloudWatch log groups with JSON logs that carry request IDs. Datadog is set up later, in Phase 6.
+5. Gradio test client hosted in `dev`: try Lambda first (container image, Function URL with response streaming, reserved concurrency of 1) as a one-day spike. If Gradio's streaming or session state misbehaves there, fall back to Fargate with 0.25 vCPU and 1 GB, roughly $10 a month if always on and less with a schedule that stops it outside working hours (rates from a May 2026 article; check current AWS pricing). App Runner is not an option because AWS closed it to new customers. Running Gradio locally against the `dev` API stays the free alternative.
+6. Retire the personal AWS account from the project: delete the `asternavium-local-*` tables and stop using its keys in project configuration.
+
+**Done when:** a commit to `main` deploys the API to `dev`; `/health`, sessions, chat with Bedrock and Bukvitsa answers work there; and JSON logs with request IDs appear in CloudWatch.
+
+**Dev only until the end:** everything related to `prod` is done in Phase 8, after the whole MVP is implemented and tested in `dev`.
+
 ### Phase 5. Authentication and authorization
 
-1. Terraform `auth` module: Cognito user pool, app client, hosted UI, Google and Apple identity providers, post-confirmation trigger.
+1. Terraform `auth` module: Cognito user pool for dev, app client, hosted UI, Google and Apple identity providers, post-confirmation trigger (the prod pool is created in Phase 8).
 2. JWT validation dependency with cached JWKS; `get_current_user`, group-based admin check.
 3. `GET /v1/me`; tests with signed test tokens.
 4. Replace the dev identity with Cognito and remove the `X-Dev-User` path. Wire Swagger UI's Authorize button to Cognito (authorization code + PKCE; register the Swagger redirect URL on the `dev` app client) and give the Gradio client a Cognito token.
 
 **Done when:** a user signs up through the hosted UI, `GET /v1/me` returns their profile, and the dev identity no longer works anywhere.
 
-### Phase 6. Monetization
+### Phase 6. Observability and monetization
 
-1. Define plans and entitlements in one config module; quota service with atomic counters and refunds.
-2. Stripe products and prices in test mode (or the Paddle equivalent if the fallback is chosen); `checkout`, `portal` and webhook endpoints with signature check and idempotency.
-3. Enforce entitlements on chat, history length and modules; return `403`/`429` with clear codes.
-4. End-to-end tests with the Stripe CLI and signed fixtures, including payment failure and cancellation.
+1. Datadog on the EU site (`datadoghq.eu`): Lambda extension and `ddtrace` in the image, Datadog trace IDs in the JSON logs, a Terraform `observability` module with the Datadog provider and a first dashboard, and the custom metrics for tokens and estimated cost per request (section 9), so the margin per plan is visible from the first paid user.
+2. Define plans and entitlements in one config module; quota service with atomic counters and refunds.
+3. Stripe products and prices in test mode (or the Paddle equivalent if the fallback is chosen); `checkout`, `portal` and webhook endpoints with signature check and idempotency.
+4. Enforce entitlements on chat, history length and modules; return `403`/`429` with clear codes.
+5. End-to-end tests with the Stripe CLI and signed fixtures, including payment failure and cancellation.
 
-**Done when:** a test-mode upgrade raises the user's limits within 30 seconds, and cancellation lowers them at period end.
+**Done when:** traces and cost-per-plan metrics appear in Datadog, a test-mode upgrade raises the user's limits within 30 seconds, and cancellation lowers them at period end.
 
 ### Phase 7. Notifications
 
-1. Terraform `notifications` module: SQS and DLQ, EventBridge Scheduler, worker Lambda, SES identity (request production access at the start of this phase).
+1. Terraform `notifications` module: SQS and DLQ, EventBridge Scheduler, worker Lambda, SES identity in sandbox mode (production access is requested in Phase 8).
 2. Preferences and device endpoints; email templates; FCM integration.
 3. Worker with plan re-check, bounce and unsubscribe handling; weekly digest and daily insight jobs.
 
@@ -459,7 +468,7 @@ Nine phases, built so that every phase ends with something deployed and testable
 2. Load test for the chat path; tune Lambda memory, timeouts and cold starts; decide on provisioned concurrency.
 3. Security review: IAM, WAF rules, prompt-injection tests, secrets, dependency audit.
 4. Privacy and legal: privacy policy, terms, astrology disclaimer, data deletion and export flow, LangSmith data handling, and a final AGPL compliance check (section 14).
-5. Complete `prod`, promote the same image, run the smoke test, switch Stripe to live mode.
+5. Set up `prod`: create the `prod` AWS account (state, OIDC role), apply the `prod` Terraform environment (API, data, Cognito pool, notifications, Bukvitsa service), create the release pipeline with manual approval and gradual alias shift, and configure the live-mode services (Stripe live keys and webhook, SES production access requested at the start of this phase, production FCM project, Datadog and LangSmith `prod` settings). Promote the same image that passed testing in `dev`, run the smoke test, then switch Stripe to live mode.
 
 **Done when:** the success criteria in section 1 are met in `prod`.
 
@@ -479,8 +488,12 @@ Production web client, in parallel with the module work: React with assistant-ui
 | LLM provider | Amazon Bedrock | Affects IAM, cost, model choice and data residency |
 | Payment provider | Stripe | Stripe needs a legal entity in a supported country; third-party sources report Ukraine is not supported, so check stripe.com/global. Fallback: Paddle as merchant of record, which does not list Ukraine as unsupported (occupied regions excluded), verifies every seller, checks the product category, pays out monthly and also handles VAT. Settle this before Phase 6; only the billing layer would change |
 | Ephemeris library | Swiss Ephemeris under the AGPL-3.0; the project is published under the AGPL | No licence fee, but the whole project must be AGPL-compatible and public; see section 14 |
-| Web client | Swagger UI (Phase 2), Gradio test client (Phase 3), React with assistant-ui after the MVP | Defines CORS, token handling and push (web push needs a service worker) |
+| Web client | Swagger UI (Phase 1), Gradio test client (Phase 2), React with assistant-ui after the MVP | Defines CORS, token handling and push (web push needs a service worker) |
 | CI/CD system | GitHub Actions with OIDC | Skip if your code lives elsewhere (GitLab, CodePipeline) |
+| AWS region | `eu-central-1` (Frankfurt), decided | Fixes where data lives and which Bedrock models are available |
+| AWS access for Phases 1 to 3 | Personal AWS account with access keys, decided | Only Bedrock and script-created `asternavium-local-*` DynamoDB tables; tests use moto. Replaced in Phase 4 by Organizations, IAM Identity Center and Terraform, following best practices |
+| Lambda architecture | `arm64` (Graviton), decided | Lower price per GB-second; the image is built for `linux/arm64` on GitHub's arm64 runners |
+| Datadog | EU site (`datadoghq.eu`), set up in Phase 6, decided | The site cannot be changed later without a new Datadog organisation; deferring keeps Datadog cost out of the early phases |
 | Streaming responses | After the MVP | Better UX for long answers; adds SSE handling and client work |
 
 Two further decisions follow from the module order:
@@ -518,11 +531,11 @@ Other statements (Cognito, Stripe, SES, FCM, Swiss Ephemeris licensing) come fro
 
 ## 14. Licence compliance (AGPL-3.0)
 
-AsterAvium uses Swiss Ephemeris under its free AGPL licence. The licence choice must be made before the public service goes live. The consequence is that the project's source must be published under the AGPL-3.0 or a compatible licence, and users of the network service must be able to obtain it. This section is an engineering checklist, not legal advice; have a lawyer review it before launch.
+AsterNavium uses Swiss Ephemeris under its free AGPL licence. The licence choice must be made before the public service goes live. The consequence is that the project's source must be published under the AGPL-3.0 or a compatible licence, and users of the network service must be able to obtain it. This section is an engineering checklist, not legal advice; have a lawyer review it before launch.
 
 ### Required in the repository
 
-- **`LICENSE` file** at the root of the application repository (`asteravium`) with the full AGPL-3.0 text.
+- **`LICENSE` file** at the root of the application repository (`asternavium`) with the full AGPL-3.0 text.
 - **Licence metadata:** SPDX identifier in `pyproject.toml` and an `SPDX-License-Identifier` header in each source file, checked by pre-commit. Confirm the exact AGPL version (for example `AGPL-3.0-or-later`) against the Swiss Ephemeris licence text you download.
 - **`NOTICE` file** that keeps the Swiss Ephemeris copyright and licence notices (Astrodienst AG; authors Dieter Koch and Alois Treindl) and lists the licences of all other dependencies, generated in CI.
 - **README** with a Licence section, how to build and run the service, and the source URL.

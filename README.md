@@ -1,11 +1,11 @@
-# AsterAvium
+# AsterNavium
 
 Modular platform for astrology, numerology and traditional knowledge systems: deterministic
 calculation engines, a structured knowledge base and an AI interpretation layer.
 
 The MVP is an API-first AI chat over Jyotisha and the Slavic symbolic traditions (Bukvitsa).
-See [docs/asteravium-mvp-concise-plan.md](docs/asteravium-mvp-concise-plan.md) and the
-[detailed specification](docs/asteravium-mvp-specification.md).
+See [docs/asternavium-mvp-concise-plan.md](docs/asternavium-mvp-concise-plan.md) and the
+[detailed specification](docs/asternavium-mvp-specification.md).
 
 ## Requirements
 
@@ -16,7 +16,7 @@ See [docs/asteravium-mvp-concise-plan.md](docs/asteravium-mvp-concise-plan.md) a
 
 ```sh
 make install              # uv sync + pre-commit hooks
-cp .env.example .env      # then set ASTERAVIUM_SOURCE_URL
+cp .env.example .env      # then set ASTERNAVIUM_SOURCE_URL
 make run                  # http://127.0.0.1:8000/docs
 ```
 
@@ -45,7 +45,7 @@ tests/           # mirrors src/app: api/ and unit/
 
 ## Licence
 
-AsterAvium is free software under the [GNU AGPL-3.0-or-later](LICENSE); third-party notices
+AsterNavium is free software under the [GNU AGPL-3.0-or-later](LICENSE); third-party notices
 are in [NOTICE](NOTICE). If you run a modified version as a network service, you must offer
 its source code to its users. The running service publishes its source URL at
 `GET /v1/about`.

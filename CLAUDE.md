@@ -1,4 +1,4 @@
-# AsterAvium
+# AsterNavium
 
 Modular platform for astrology, numerology and traditional knowledge systems: deterministic calculation engines + structured knowledge base + AI interpretation layer.
 

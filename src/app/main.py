@@ -27,7 +27,7 @@ def create_app(settings: Settings | None = None) -> FastAPI:
 
     docs_enabled = resolved.environment is Environment.DEV
     app = FastAPI(
-        title="AsterAvium API",
+        title="AsterNavium API",
         version=__version__,
         license_info={"name": LICENSE_SPDX, "url": LICENSE_URL},
         docs_url="/docs" if docs_enabled else None,

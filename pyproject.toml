@@ -1,5 +1,5 @@
 [project]
-name = "asteravium"
+name = "asternavium"
 version = "0.1.0"
 description = "Modular platform for astrology, numerology and traditional knowledge systems."
 readme = "README.md"

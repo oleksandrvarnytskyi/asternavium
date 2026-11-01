@@ -17,7 +17,7 @@ def settings() -> Settings:
     return Settings(
         _env_file=None,
         environment=Environment.DEV,
-        source_url=HttpUrl("https://example.org/asteravium"),
+        source_url=HttpUrl("https://example.org/asternavium"),
         commit_sha="abc123",
     )
 

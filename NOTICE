@@ -15,18 +15,27 @@ Third-party components (runtime dependencies)
 annotated-doc        MIT
 annotated-types      MIT
 anyio                MIT
+boto3                Apache-2.0
+botocore             Apache-2.0
 click                BSD-3-Clause
 fastapi              MIT
 h11                  MIT
 idna                 BSD-3-Clause
+jmespath             MIT
 opentelemetry-api    Apache-2.0
 pydantic             MIT
 pydantic-core        MIT
 pydantic-settings    MIT
+python-dateutil      Apache-2.0 AND BSD-3-Clause
 python-dotenv        BSD-3-Clause
+python-ulid          MIT
+s3transfer           Apache-2.0
+six                  MIT
 starlette            BSD-3-Clause
 typing-extensions    PSF-2.0
 typing-inspection    MIT
+tzdata               Apache-2.0
+urllib3              MIT
 uvicorn              BSD-3-Clause
 
 Each component remains under its own licence; the full texts ship with the installed

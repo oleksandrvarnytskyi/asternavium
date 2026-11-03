@@ -241,7 +241,7 @@ Lambda is stateless, so both memories live in DynamoDB. A session is one convers
 | Notification prefs | `USER#<id>` | `NOTIFPREFS` | email and push opt-ins |
 | Webhook event | `EVENT#<stripe_event_id>` | `v1` | processed at, TTL (idempotency) |
 
-A GSI on the Stripe customer ID resolves webhook events to users; it is added in Phase 6, when the first query needs it (DynamoDB adds a GSI to an existing table without migration). ULIDs keep sessions and messages time-ordered, so listing newest first is a plain `Query`. Enable on-demand capacity, point-in-time recovery and KMS encryption. Account deletion removes every `USER#<id>` item and the user's sessions' messages (needed for GDPR).
+The app table is named `asternavium-<environment>-app`: `asternavium-local-app` for local development, `asternavium-dev-app` and `asternavium-prod-app` in the AWS environments; the name reaches the app through the `ASTERNAVIUM_APP_TABLE_NAME` setting. A GSI on the Stripe customer ID resolves webhook events to users; it is added in Phase 6, when the first query needs it (DynamoDB adds a GSI to an existing table without migration). ULIDs keep sessions and messages time-ordered, so listing newest first is a plain `Query`. Enable on-demand capacity, point-in-time recovery and KMS encryption. Account deletion removes every `USER#<id>` item and the user's sessions' messages (needed for GDPR).
 
 ## 8. Notifications (email and push)
 

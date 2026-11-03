@@ -122,7 +122,7 @@ The app already writes JSON logs with request IDs to stdout, and Lambda forwards
 
 ### Step 7. Data and secrets (`asternavium-infra`)
 
-1. Create `modules/data`: the app table and the checkpoints table with the same keys, GSI and TTL as the local table script from Phases 1 and 2, plus what the script leaves out: point-in-time recovery, KMS encryption and deletion protection off for `dev`.
+1. Create `modules/data`: the app table (`asternavium-dev-app`, following the naming convention in section 7 of the specification) and the checkpoints table with the same keys, GSI and TTL as the local table script from Phases 1 and 2, plus what the script leaves out: point-in-time recovery, KMS encryption and deletion protection off for `dev`.
 2. Create `modules/secrets`: Secrets Manager containers for the LangSmith API key and any other keys the app uses. Terraform creates them empty; you set the values with the AWS CLI so they never enter Terraform state.
 3. Outputs: table names and secret ARNs, consumed by the `api` module in step 8.
 4. Delete the local table script from the app repository, or reduce it to a helper for running against moto, so there is one authoritative table definition.

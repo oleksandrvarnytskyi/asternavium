@@ -41,6 +41,9 @@ ignore = [
 [tool.ruff.lint.per-file-ignores]
 "tests/**" = ["S101", "D"]
 
+[tool.ruff.lint.isort]
+known-first-party = ["app", "tools"]
+
 [tool.ruff.lint.flake8-tidy-imports]
 ban-relative-imports = "all"
 
@@ -52,6 +55,8 @@ plugins = ["pydantic.mypy"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
+# Lets tests import the developer tools in tools/.
+pythonpath = ["."]
 addopts = ["--strict-markers", "--strict-config", "--cov=app", "--cov-report=term-missing"]
 
 [tool.coverage.run]

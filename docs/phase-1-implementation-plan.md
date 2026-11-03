@@ -35,7 +35,7 @@ The specification fixes the data model (section 7), the endpoints (section 5) an
 
 | # | Decision | Choice | Why |
 | --- | --- | --- | --- |
-| D1 | How sessions are created in Phase 1 | Add `POST /v1/sessions` (module, optional title) (decided) | The specification creates sessions implicitly in `POST /v1/chat`, which only exists from Phase 2. An explicit endpoint makes the exit criterion testable now and lets clients start an empty chat later; `POST /v1/chat` without `session_id` still creates one in Phase 2 |
+| D1 | How sessions are created in Phase 1 | Add a temporary `POST /v1/sessions` (module, optional title), removed in Phase 2 once `POST /v1/chat` creates sessions (decided) | The specification creates sessions only implicitly in `POST /v1/chat`, which exists from Phase 2, so without this endpoint nothing in the API can create a session to list, rename or delete, and the exit criterion cannot be shown in Swagger UI. It is a thin wrapper over `SessionService.create`, which Phase 2 reuses. Removing it in Phase 2 leaves one creation path and avoids empty sessions using up the Free plan's session limit. No client depends on it, and the removal is listed in Phase 2 of the specification |
 | D2 | Reading the profile | Introduce `GET /v1/me` now, returning the user ID and profile; plan, entitlements and quota fields are added in Phases 5 and 6 (decided) | One endpoint instead of two with overlapping data, and no endpoint beyond the specification. Adding fields later does not break clients. `profile` is `null` until the first `PUT /v1/profile`, because the user exists without a profile |
 | D3 | Account deletion endpoint | `DELETE /v1/me` (decided) | Section 7 requires account deletion, but section 5 names no endpoint. `/v1/me` is the account resource in the specification |
 | D4 | Repositories built now | Profile, session and message only (decided) | The specification also lists subscription and quota repositories for this phase; nothing uses them before Phase 6, so building them now is speculative (CLAUDE.md: no unused abstractions) |
@@ -67,7 +67,7 @@ All endpoints are under `/v1`, require the dev identity in this phase, and retur
 | Method, path | Purpose | Notes |
 | --- | --- | --- |
 | `GET /v1/places` | Search birth places by name | Query: `query` (2 to 100 characters), `limit` (default 10). Returns place ID, name, region, country and time zone, largest population first; no coordinates needed by the client. Decision D7 |
-| `POST /v1/sessions` | Create a session | Body: `module` (`jyotisha`, `bukvitsa`, `general`), optional `title` (default "New chat", at most 100 characters). Decision D1 |
+| `POST /v1/sessions` | Create a session | Body: `module` (`jyotisha`, `bukvitsa`, `general`), optional `title` (default "New chat", at most 100 characters). Temporary, removed in Phase 2. Decision D1 |
 | `GET /v1/sessions` | List own sessions, newest first | Query: `limit`, `cursor` |
 | `GET /v1/sessions/{id}/messages` | One session's history, newest first | Query: `limit`, `cursor`. Empty until Phase 2 writes messages |
 | `PATCH /v1/sessions/{id}` | Rename | Body: `title` |
@@ -85,7 +85,7 @@ The steps run in order; within a step, items can be done in any order. Each step
 ### Step 1. Confirm decisions and update the specification
 
 1. Decisions D1 to D10 in section 3 are confirmed.
-2. Add the confirmed endpoints (`GET /v1/places`, `POST /v1/sessions`, `DELETE /v1/me`) to the API table in section 5 of the specification, record the bundled GeoNames dataset for birth places (the specification currently leaves birth-place lookup to the production web client), note that `GET /v1/me` arrives in Phase 1 with the profile and grows in Phases 5 and 6, and note that the subscription and quota repositories and the Stripe GSI move to Phase 6.
+2. Add the confirmed endpoints (`GET /v1/places`, `DELETE /v1/me`) to the API table in section 5 of the specification; list the temporary `POST /v1/sessions` in the specification's Phase 1 and its removal in Phase 2 instead, since it is not part of the final API; record the bundled GeoNames dataset for birth places (the specification currently leaves birth-place lookup to the production web client), note that `GET /v1/me` arrives in Phase 1 with the profile and grows in Phases 5 and 6, and note that the subscription and quota repositories and the Stripe GSI move to Phase 6.
 
 **Done when:** the specification and this plan agree.
 

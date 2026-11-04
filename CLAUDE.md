@@ -124,6 +124,7 @@ Rules:
 - Before starting a non-trivial feature, outline the plan (affected modules, interfaces, tests) and confirm if requirements are ambiguous. Ask rather than guess when a calculation convention or tradition-specific rule is unclear.
 - Do not modify unrelated files, reformat code you did not change, or rename public APIs without being asked.
 - Update docs and docstrings in the same change as the code.
+- `docs/asternavium-mvp-specification.md` is large (~50 KB): never read it whole; grep for the section you need and read only those lines.
 
 ## Do not
 

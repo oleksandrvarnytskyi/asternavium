@@ -29,5 +29,6 @@ docs/_build/
 
 # IDEs and OS
 .idea/
+.run/
 .vscode/
 .DS_Store

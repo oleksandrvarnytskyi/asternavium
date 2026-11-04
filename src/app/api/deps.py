@@ -10,6 +10,7 @@ from fastapi.security import APIKeyHeader
 from app.core.config import Environment, Settings
 from app.core.errors import UnauthenticatedError
 from app.core.identity import Principal
+from app.repositories.places import PlaceRepository
 
 DEV_USER_HEADER: Final = "X-Dev-User"
 # The ID ends up in DynamoDB keys, so only a small safe alphabet is accepted.
@@ -31,6 +32,15 @@ def get_settings(request: Request) -> Settings:
 
 
 SettingsDep = Annotated[Settings, Depends(get_settings)]
+
+
+def get_place_repository(request: Request) -> PlaceRepository:
+    """Return the place repository loaded at startup."""
+    places: PlaceRepository = request.app.state.place_repository
+    return places
+
+
+PlaceRepositoryDep = Annotated[PlaceRepository, Depends(get_place_repository)]
 
 
 def get_current_user(

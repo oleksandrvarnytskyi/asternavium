@@ -36,11 +36,14 @@ Project conventions are in [CLAUDE.md](CLAUDE.md).
 
 ```
 src/app/
-├── main.py      # create_app() factory and composition root
-├── core/        # settings, JSON logging, errors, request context
-├── api/         # /health and versioned routers under /v1
-└── schemas/     # Pydantic request/response models
-tests/           # mirrors src/app: api/ and unit/
+├── main.py        # create_app() factory and composition root
+├── core/          # settings, JSON logging, errors, request context
+├── api/           # /health and versioned routers under /v1
+├── data/          # bundled datasets (GeoNames places snapshot)
+├── repositories/  # persistence and dataset access
+└── schemas/       # Pydantic request/response models
+tools/             # developer scripts (local tables, places snapshot)
+tests/             # mirrors src/app: api/ and unit/
 ```
 
 ## Licence
@@ -49,3 +52,8 @@ AsterNavium is free software under the [GNU AGPL-3.0-or-later](LICENSE); third-p
 are in [NOTICE](NOTICE). If you run a modified version as a network service, you must offer
 its source code to its users. The running service publishes its source URL at
 `GET /v1/about`.
+
+Birth place search uses data from [GeoNames](https://www.geonames.org/), licensed under
+[CC BY 4.0](https://creativecommons.org/licenses/by/4.0/). The bundled snapshot in
+`src/app/data/places/` is rebuilt with `make places-snapshot`; see [NOTICE](NOTICE) for the
+changes made to the data.

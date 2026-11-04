@@ -1,9 +1,10 @@
 # SPDX-License-Identifier: AGPL-3.0-or-later
 """Shared fixtures."""
 
-from collections.abc import Iterator
+from collections.abc import Callable, Iterator
 
 import pytest
+from fastapi import FastAPI
 from fastapi.testclient import TestClient
 from moto import mock_aws
 from mypy_boto3_dynamodb import DynamoDBClient
@@ -13,6 +14,76 @@ from app.core.config import Environment, Settings
 from app.main import create_app
 from app.repositories.app_table import ensure_app_table
 from app.repositories.dynamodb import create_dynamodb_client
+from app.repositories.geonames import (
+    GeoNamesPlaceRepository,
+    GeoNamesRecord,
+    load_geonames_repository,
+)
+from app.repositories.places import Place
+
+type AppFactory = Callable[[Settings], FastAPI]
+
+TEST_DATASET_VERSION = "2000-01-01"
+# Synthetic places: real names for readable tests, invented figures. Warsaw's nickname makes it
+# an alternate-name match for "par", which must rank below every main-name match.
+TEST_PLACE_RECORDS = (
+    GeoNamesRecord(
+        place=Place(
+            place_id="1",
+            name="Paris",
+            region="Île-de-France",
+            country="France",
+            latitude=48.85,
+            longitude=2.35,
+            population=2_000_000,
+            timezone="Europe/Paris",
+        ),
+        main_names=("Paris", "Paris"),
+        alternate_names=("Parigi", "Париж"),
+    ),
+    GeoNamesRecord(
+        place=Place(
+            place_id="2",
+            name="Paris",
+            region="Texas",
+            country="United States",
+            latitude=33.66,
+            longitude=-95.56,
+            population=25_000,
+            timezone="America/Chicago",
+        ),
+        main_names=("Paris", "Paris"),
+        alternate_names=(),
+    ),
+    GeoNamesRecord(
+        place=Place(
+            place_id="3",
+            name="Warsaw",
+            region="Mazovia",
+            country="Poland",
+            latitude=52.23,
+            longitude=21.01,
+            population=1_700_000,
+            timezone="Europe/Warsaw",
+        ),
+        main_names=("Warsaw", "Warsaw"),
+        alternate_names=("Warszawa", "Paris of the North"),
+    ),
+    GeoNamesRecord(
+        place=Place(
+            place_id="4",
+            name="Kyiv",
+            region=None,
+            country="Ukraine",
+            latitude=50.45,
+            longitude=30.52,
+            population=3_000_000,
+            timezone="Europe/Kyiv",
+        ),
+        main_names=("Kyiv", "Kyiv"),
+        alternate_names=("Київ", "Kiev"),
+    ),
+)
 
 
 @pytest.fixture(autouse=True)
@@ -37,8 +108,30 @@ def settings() -> Settings:
 
 
 @pytest.fixture
-def client(settings: Settings) -> Iterator[TestClient]:
-    with TestClient(create_app(settings)) as test_client:
+def place_repository() -> GeoNamesPlaceRepository:
+    """A few synthetic places; tests use it instead of the slow-to-load bundled snapshot."""
+    return GeoNamesPlaceRepository(TEST_PLACE_RECORDS, dataset_version=TEST_DATASET_VERSION)
+
+
+@pytest.fixture(scope="session")
+def bundled_places() -> GeoNamesPlaceRepository:
+    """The real bundled GeoNames snapshot, loaded once per test run for smoke tests."""
+    return load_geonames_repository()
+
+
+@pytest.fixture
+def make_app(place_repository: GeoNamesPlaceRepository) -> AppFactory:
+    """Build the app with the synthetic places, so no test pays for loading the snapshot."""
+
+    def factory(settings: Settings) -> FastAPI:
+        return create_app(settings, place_repository=place_repository)
+
+    return factory
+
+
+@pytest.fixture
+def client(make_app: AppFactory, settings: Settings) -> Iterator[TestClient]:
+    with TestClient(make_app(settings)) as test_client:
         yield test_client
 
 

@@ -1,4 +1,4 @@
-.PHONY: install lint format typecheck test check run local-tables local-tables-delete
+.PHONY: install lint format typecheck test check run local-tables local-tables-delete places-snapshot
 
 install:
 	uv sync --locked
@@ -29,3 +29,7 @@ local-tables:
 
 local-tables-delete:
 	uv run python -m tools.local_tables delete
+
+# Rebuild the bundled GeoNames places snapshot (downloads ~14 MB); commit the result.
+places-snapshot:
+	uv run python -m tools.geonames_snapshot

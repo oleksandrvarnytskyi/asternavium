@@ -1,5 +1,5 @@
 # SPDX-License-Identifier: AGPL-3.0-or-later
-from collections.abc import Iterator
+from collections.abc import Callable, Iterator
 
 import pytest
 from fastapi import FastAPI
@@ -7,15 +7,14 @@ from fastapi.testclient import TestClient
 
 from app.api.deps import DEV_USER_HEADER, CurrentUserDep
 from app.core.config import Environment, Settings
-from app.main import create_app
 
 PROBE_PATH = "/probe"
 VALID_USER = "alice"
 
 
-def _create_probe_app(settings: Settings) -> FastAPI:
+def _create_probe_app(make_app: Callable[[Settings], FastAPI], settings: Settings) -> FastAPI:
     """Build the real app plus one route that echoes the resolved user ID."""
-    app = create_app(settings)
+    app = make_app(settings)
 
     @app.get(PROBE_PATH)
     async def probe(user: CurrentUserDep) -> dict[str, str]:
@@ -25,8 +24,10 @@ def _create_probe_app(settings: Settings) -> FastAPI:
 
 
 @pytest.fixture
-def probe_client(settings: Settings) -> Iterator[TestClient]:
-    with TestClient(_create_probe_app(settings)) as test_client:
+def probe_client(
+    make_app: Callable[[Settings], FastAPI], settings: Settings
+) -> Iterator[TestClient]:
+    with TestClient(_create_probe_app(make_app, settings)) as test_client:
         yield test_client
 
 
@@ -66,9 +67,11 @@ def test_get_current_user_error_does_not_echo_header_value(probe_client: TestCli
     assert rejected not in response.text
 
 
-def test_get_current_user_rejects_valid_header_outside_dev(settings: Settings) -> None:
+def test_get_current_user_rejects_valid_header_outside_dev(
+    make_app: Callable[[Settings], FastAPI], settings: Settings
+) -> None:
     prod_settings = settings.model_copy(update={"environment": Environment.PROD})
-    client = TestClient(_create_probe_app(prod_settings))
+    client = TestClient(_create_probe_app(make_app, prod_settings))
 
     response = client.get(PROBE_PATH, headers={DEV_USER_HEADER: VALID_USER})
 

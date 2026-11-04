@@ -31,6 +31,13 @@ class BaseAppError(Exception):
         self.message = message
 
 
+class InvalidBirthDataError(BaseAppError):
+    """Birth data that cannot be turned into a single instant, e.g. a time skipped by DST."""
+
+    code: ClassVar[str] = "invalid_birth_data"
+    http_status: ClassVar[HTTPStatus] = HTTPStatus.UNPROCESSABLE_CONTENT
+
+
 class UnauthenticatedError(BaseAppError):
     """The request carries no valid identity."""
 

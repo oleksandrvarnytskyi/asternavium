@@ -130,8 +130,8 @@ The steps run in order; within a step, items can be done in any order. Each step
 
 Pure code with no I/O, in its own module.
 
-1. A frozen birth data value type and its Pydantic boundary schema, with `extra="forbid"`: date, time (required, to the minute), place ID and the ambiguity choice. Coordinates and time zone are not input: they come from the place found in step 5.
-2. A function that converts the local birth date and time to a timezone-aware UTC `datetime`, raising `InvalidBirthDataError` for nonexistent times and for ambiguous times without a choice (decision D8); a missing time is rejected by the schema (decision D9). Error messages name the problem, never the submitted values.
+1. A frozen birth data value type and its Pydantic boundary schema, with `extra="forbid"`: date (from 1900-01-01 on), time (required, to the minute, without a UTC offset), place ID and the ambiguity choice. Coordinates and time zone are not input: they come from the place found in step 5.
+2. A function that converts the local birth date and time to a timezone-aware UTC `datetime`, raising `InvalidBirthDataError` for nonexistent times and for ambiguous times without a choice (decision D8); a missing time is rejected by the schema (decision D9). A second pure function rejects a birth instant in the future; it takes the current instant as an argument, and the profile service in step 7 passes the clock. Error messages name the problem, never the submitted values.
 3. Tests with explicit cases: a DST spring-forward gap, a fall-back overlap with both choices, a date before a zone's historical offset change, midnight, 29 February in a leap year, a place ID that does not exist, a place at a polar latitude, and birth data without a time, which is rejected. Add Hypothesis property tests: for any valid non-ambiguous input, converting back to the local zone reproduces the local date and time.
 
 **Done when:** the tests pass, and no test fixture is a real person's birth data.

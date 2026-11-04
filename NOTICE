@@ -40,3 +40,15 @@ uvicorn              BSD-3-Clause
 
 Each component remains under its own licence; the full texts ship with the installed
 packages (see their *.dist-info directories).
+
+-------------------------------------------------------------------------------
+Bundled data
+-------------------------------------------------------------------------------
+
+src/app/data/places/
+    Place names, coordinates, populations and time zones from GeoNames
+    (https://www.geonames.org/), licensed under the Creative Commons Attribution 4.0
+    International licence (CC BY 4.0, https://creativecommons.org/licenses/by/4.0/).
+    Changes: limited to the cities500 export (populated places with 500 or more
+    inhabitants) without sections of populated places (city districts), reduced to the
+    columns this program needs, and region and country codes replaced by their names. The download date is in version.txt.

@@ -31,6 +31,13 @@ class BaseAppError(Exception):
         self.message = message
 
 
+class UnauthenticatedError(BaseAppError):
+    """The request carries no valid identity."""
+
+    code: ClassVar[str] = "unauthenticated"
+    http_status: ClassVar[HTTPStatus] = HTTPStatus.UNAUTHORIZED
+
+
 def _error_response(status: HTTPStatus, body: ErrorResponse) -> JSONResponse:
     headers = {REQUEST_ID_HEADER: body.request_id} if body.request_id else None
     return JSONResponse(

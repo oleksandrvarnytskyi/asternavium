@@ -1,4 +1,5 @@
 # SPDX-License-Identifier: AGPL-3.0-or-later
+from collections.abc import Callable
 from http import HTTPStatus
 
 import pytest
@@ -9,7 +10,6 @@ from pydantic import BaseModel
 from app.core.config import Settings
 from app.core.errors import BaseAppError
 from app.core.request_context import REQUEST_ID_HEADER
-from app.main import create_app
 
 
 class _NotFoundError(BaseAppError):
@@ -22,8 +22,8 @@ class _Payload(BaseModel):
 
 
 @pytest.fixture
-def app(settings: Settings) -> FastAPI:
-    app = create_app(settings)
+def app(make_app: Callable[[Settings], FastAPI], settings: Settings) -> FastAPI:
+    app = make_app(settings)
 
     @app.get("/domain-error")
     async def domain_error() -> None:

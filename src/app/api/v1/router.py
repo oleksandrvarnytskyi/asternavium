@@ -3,7 +3,8 @@
 
 from fastapi import APIRouter
 
-from app.api.v1 import about
+from app.api.v1 import about, places
 
 router = APIRouter(prefix="/v1")
 router.include_router(about.router)
+router.include_router(places.router)

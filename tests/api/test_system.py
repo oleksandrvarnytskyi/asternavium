@@ -1,4 +1,8 @@
 # SPDX-License-Identifier: AGPL-3.0-or-later
+from collections.abc import Callable
+
+import pytest
+from fastapi import FastAPI
 from fastapi.testclient import TestClient
 
 from app import __version__
@@ -6,6 +10,7 @@ from app.core.config import Environment, Settings
 from app.core.request_context import REQUEST_ID_HEADER
 from app.main import create_app
 from app.repositories.dynamodb import create_dynamodb_client
+from app.repositories.geonames import GeoNamesPlaceRepository
 
 
 def test_health_returns_ok(client: TestClient) -> None:
@@ -31,9 +36,11 @@ def test_docs_are_served_in_dev(client: TestClient) -> None:
     assert client.get("/docs").status_code == 200
 
 
-def test_docs_are_disabled_in_prod(settings: Settings) -> None:
+def test_docs_are_disabled_in_prod(
+    make_app: Callable[[Settings], FastAPI], settings: Settings
+) -> None:
     prod_settings = settings.model_copy(update={"environment": Environment.PROD})
-    client = TestClient(create_app(prod_settings))
+    client = TestClient(make_app(prod_settings))
 
     assert client.get("/docs").status_code == 404
     assert client.get("/openapi.json").status_code == 404
@@ -52,15 +59,40 @@ def test_response_replaces_malformed_incoming_request_id(client: TestClient) -> 
     assert len(response.headers[REQUEST_ID_HEADER]) == 32
 
 
-def test_create_app_builds_dynamodb_client_from_settings(settings: Settings) -> None:
-    app = create_app(settings)
+def test_create_app_builds_dynamodb_client_from_settings(
+    make_app: Callable[[Settings], FastAPI], settings: Settings
+) -> None:
+    app = make_app(settings)
 
     assert app.state.dynamodb_client.meta.region_name == settings.aws_region
 
 
-def test_create_app_uses_injected_dynamodb_client(settings: Settings) -> None:
+def test_create_app_uses_injected_dynamodb_client(
+    settings: Settings, place_repository: GeoNamesPlaceRepository
+) -> None:
     injected = create_dynamodb_client(settings)
 
-    app = create_app(settings, dynamodb_client=injected)
+    app = create_app(settings, dynamodb_client=injected, place_repository=place_repository)
 
     assert app.state.dynamodb_client is injected
+
+
+def test_create_app_uses_injected_place_repository(
+    settings: Settings, place_repository: GeoNamesPlaceRepository
+) -> None:
+    app = create_app(settings, place_repository=place_repository)
+
+    assert app.state.place_repository is place_repository
+
+
+def test_create_app_loads_bundled_places_by_default(
+    settings: Settings,
+    place_repository: GeoNamesPlaceRepository,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    # Stands in for the real loader, which takes seconds; the snapshot has its own smoke tests.
+    monkeypatch.setattr("app.main.load_geonames_repository", lambda: place_repository)
+
+    app = create_app(settings)
+
+    assert app.state.place_repository is place_repository

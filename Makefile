@@ -1,4 +1,4 @@
-.PHONY: install lint format typecheck test check run
+.PHONY: install lint format typecheck test check run local-tables local-tables-delete
 
 install:
 	uv sync --locked
@@ -13,7 +13,7 @@ format:
 	uv run ruff format .
 
 typecheck:
-	uv run mypy src tests
+	uv run mypy src tests tools
 
 test:
 	uv run pytest
@@ -22,3 +22,10 @@ check: lint typecheck test
 
 run:
 	uv run uvicorn --factory app.main:create_app --reload
+
+# Local DynamoDB table in the developer's AWS account; needs AWS_PROFILE in the environment.
+local-tables:
+	uv run python -m tools.local_tables create
+
+local-tables-delete:
+	uv run python -m tools.local_tables delete

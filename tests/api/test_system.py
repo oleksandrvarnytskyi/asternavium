@@ -5,6 +5,7 @@ from app import __version__
 from app.core.config import Environment, Settings
 from app.core.request_context import REQUEST_ID_HEADER
 from app.main import create_app
+from app.repositories.dynamodb import create_dynamodb_client
 
 
 def test_health_returns_ok(client: TestClient) -> None:
@@ -49,3 +50,17 @@ def test_response_replaces_malformed_incoming_request_id(client: TestClient) -> 
 
     assert response.headers[REQUEST_ID_HEADER] != "bad id!"
     assert len(response.headers[REQUEST_ID_HEADER]) == 32
+
+
+def test_create_app_builds_dynamodb_client_from_settings(settings: Settings) -> None:
+    app = create_app(settings)
+
+    assert app.state.dynamodb_client.meta.region_name == settings.aws_region
+
+
+def test_create_app_uses_injected_dynamodb_client(settings: Settings) -> None:
+    injected = create_dynamodb_client(settings)
+
+    app = create_app(settings, dynamodb_client=injected)
+
+    assert app.state.dynamodb_client is injected

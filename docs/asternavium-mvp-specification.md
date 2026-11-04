@@ -158,8 +158,10 @@ The two endpoints you named stay the core. Multiple sessions, billing and notifi
 | --- | --- | --- |
 | `GET /v1/prompts` | Public | Bubble prompts for the start screen. Query: `locale`, `module`. Static JSON, cacheable, so it is fast for anonymous visitors |
 | `POST /v1/chat` | JWT + quota | Send a message. Body: `session_id` (optional, new session if omitted), `message`, `module`, `locale`. Returns `session_id`, `message_id`, `reply`, `references`, `usage` and remaining quota |
-| `GET /v1/me` | JWT | Profile, plan, entitlements, remaining quota |
-| `PUT /v1/profile` | JWT | Birth data, preferred tradition, language, expertise level |
+| `GET /v1/me` | JWT | User ID and profile (from Phase 1; `profile` is `null` until the first `PUT /v1/profile`); plan, entitlements and remaining quota are added in Phases 5 and 6 |
+| `DELETE /v1/me` | JWT | Delete the account and all its data (profile, sessions, messages); idempotent |
+| `PUT /v1/profile` | JWT | Birth data (date, time to the minute, place ID from `GET /v1/places`), preferred tradition, language, expertise level |
+| `GET /v1/places` | JWT | Search birth places by name in a GeoNames city dataset bundled with the app; returns place ID, name, region, country and time zone. The server fills in coordinates and time zone from the chosen place, so no birth place is sent to an external service |
 | `GET /v1/sessions` | JWT | List sessions (title, module, last activity), paginated |
 | `GET /v1/sessions/{id}/messages` | JWT | Paginated history of one session |
 | `PATCH` / `DELETE /v1/sessions/{id}` | JWT | Rename or delete a session |
@@ -239,7 +241,7 @@ Lambda is stateless, so both memories live in DynamoDB. A session is one convers
 | Notification prefs | `USER#<id>` | `NOTIFPREFS` | email and push opt-ins |
 | Webhook event | `EVENT#<stripe_event_id>` | `v1` | processed at, TTL (idempotency) |
 
-A GSI on the Stripe customer ID resolves webhook events to users. ULIDs keep sessions and messages time-ordered, so listing newest first is a plain `Query`. Enable on-demand capacity, point-in-time recovery and KMS encryption. Account deletion removes every `USER#<id>` item and the user's sessions' messages (needed for GDPR).
+The app table is named `asternavium-<environment>-app`: `asternavium-local-app` for local development, `asternavium-dev-app` and `asternavium-prod-app` in the AWS environments; the name reaches the app through the `ASTERNAVIUM_APP_TABLE_NAME` setting. A GSI on the Stripe customer ID resolves webhook events to users; it is added in Phase 6, when the first query needs it (DynamoDB adds a GSI to an existing table without migration). ULIDs keep sessions and messages time-ordered, so listing newest first is a plain `Query`. Enable on-demand capacity, point-in-time recovery and KMS encryption. Account deletion removes every `USER#<id>` item and the user's sessions' messages (needed for GDPR).
 
 ## 8. Notifications (email and push)
 
@@ -393,12 +395,13 @@ Nine phases. Phases 1 to 3 build the core functionality (data layer and sessions
 
 ### Phase 1. Data layer and sessions (local)
 
-1. Local tables: a script creates the `asternavium-local-app` table (keys, GSI and TTL as in section 7) in the personal AWS account; table names come from settings, so Phase 4 only changes configuration.
-2. Repositories for profile, subscription, session, message, quota; moto-based tests.
-3. Session endpoints (list, history, rename, delete) with ownership checks; `PUT /v1/profile`; account deletion.
-4. Temporary dev identity: `get_current_user` reads a test user from an `X-Dev-User` header when the environment is `dev`, so sessions can be built and tested before Cognito exists. It is removed in Phase 5, and a test asserts it is disabled in `prod`.
+1. Local tables: a script creates the `asternavium-local-app` table (keys and TTL as in section 7; the Stripe customer GSI follows in Phase 6) in the personal AWS account; table names come from settings, so Phase 4 only changes configuration.
+2. Repositories for profile, session and message; moto-based tests. The subscription and quota repositories move to Phase 6, where they are first used.
+3. Session endpoints (list, history, rename, delete) with ownership checks; `GET /v1/me`, `PUT /v1/profile` and `DELETE /v1/me` (account deletion); `GET /v1/places` for birth places.
+4. Temporary `POST /v1/sessions` (module, optional title), so sessions can be created and the endpoints above tested before `POST /v1/chat` exists. It is removed in Phase 2.
+5. Temporary dev identity: `get_current_user` reads a test user from an `X-Dev-User` header when the environment is `dev`, so sessions can be built and tested before Cognito exists. It is removed in Phase 5, and a test asserts it is disabled in `prod`.
 
-**Done when:** sessions can be created and listed per test user, and cross-user access returns `403` or `404`.
+**Done when:** sessions can be created and listed per test user, and cross-user access returns `404`, so a session's existence is not revealed.
 
 **Web client from this phase:** Swagger UI (`/docs`), enabled in `dev` and disabled in `prod`. It uses the dev identity until Phase 5 adds the Cognito Authorize button.
 
@@ -407,7 +410,7 @@ Nine phases. Phases 1 to 3 build the core functionality (data layer and sessions
 1. LLM factory (`init_chat_model`) with Bedrock in the personal AWS account (model access enabled in `eu-central-1`); model and limits come from settings.
 2. Jyotisha engine on Swiss Ephemeris (pyswisseph, or its community fork pysweph, which keeps the same import name): the library supplies planetary positions, sidereal modes and houses; the project adds nakshatras and dasha periods, validated with golden tests against a reference chart tool. The library is a C extension, so the Docker image in Phase 4 needs the C build tools.
 3. LangGraph agent: system prompt that enforces the platform's transparency and disclaimer rules, tools for the Jyotisha engine and the glossary, `DynamoDBSaver` checkpointer on a local `asternavium-local-checkpoints` table (added to the table script), context trimming and summary. The Bukvitsa tool is added in Phase 3.
-4. `POST /v1/chat` using the chat turn sequence from section 7 (the quota and plan checks arrive in Phase 6); `GET /v1/prompts` serving versioned bubble prompts.
+4. `POST /v1/chat` using the chat turn sequence from section 7 (the quota and plan checks arrive in Phase 6); `GET /v1/prompts` serving versioned bubble prompts. Remove the temporary `POST /v1/sessions` from Phase 1, so `POST /v1/chat` is the only way to create a session; tests that need a session create it through chat.
 5. LangSmith project, tracing, golden dataset (about 30 questions), first eval run.
 
 **Done when:** a test user holds two parallel sessions, each remembers its own context, and history survives an app restart.
@@ -425,7 +428,7 @@ Nine phases. Phases 1 to 3 build the core functionality (data layer and sessions
 ### Phase 4. Foundation and first deploy
 
 1. AWS setup: an AWS Organization with the `dev` account, an IAM Identity Center admin user with MFA and an SSO CLI profile, and a budget alert. This replaces the personal account's access keys for project work.
-2. Infra repo: `bootstrap/` (state bucket, OIDC roles), then `dev` with ECR, Lambda, API Gateway and WAF; the `data` module (app table, checkpoints table, GSI, TTL, PITR, KMS), which replaces the local table script; secrets; and the `bukvitsa` module. The API role reaches only its tables, its secrets and the chosen Bedrock models.
+2. Infra repo: `bootstrap/` (state bucket, OIDC roles), then `dev` with ECR, Lambda, API Gateway and WAF; the `data` module (app table, checkpoints table, TTL, PITR, KMS; the Stripe customer GSI is added in Phase 6), which replaces the local table script; secrets; and the `bukvitsa` module. The API role reaches only its tables, its secrets and the chosen Bedrock models.
 3. Dockerfile with Lambda Web Adapter (`arm64` image, with the C build tools for Swiss Ephemeris); pipeline builds, pushes and deploys the image. The Bukvitsa service gets its own image and pipeline the same way.
 4. CloudWatch log groups with JSON logs that carry request IDs. Datadog is set up later, in Phase 6.
 5. Gradio test client hosted in `dev`: try Lambda first (container image, Function URL with response streaming, reserved concurrency of 1) as a one-day spike. If Gradio's streaming or session state misbehaves there, fall back to Fargate with 0.25 vCPU and 1 GB, roughly $10 a month if always on and less with a schedule that stops it outside working hours (rates from a May 2026 article; check current AWS pricing). App Runner is not an option because AWS closed it to new customers. Running Gradio locally against the `dev` API stays the free alternative.
@@ -439,7 +442,7 @@ Nine phases. Phases 1 to 3 build the core functionality (data layer and sessions
 
 1. Terraform `auth` module: Cognito user pool for dev, app client, hosted UI, Google and Apple identity providers, post-confirmation trigger (the prod pool is created in Phase 8).
 2. JWT validation dependency with cached JWKS; `get_current_user`, group-based admin check.
-3. `GET /v1/me`; tests with signed test tokens.
+3. `GET /v1/me` (in place since Phase 1) resolves the user from the token; tests with signed test tokens.
 4. Replace the dev identity with Cognito and remove the `X-Dev-User` path. Wire Swagger UI's Authorize button to Cognito (authorization code + PKCE; register the Swagger redirect URL on the `dev` app client) and give the Gradio client a Cognito token.
 
 **Done when:** a user signs up through the hosted UI, `GET /v1/me` returns their profile, and the dev identity no longer works anywhere.
@@ -447,7 +450,7 @@ Nine phases. Phases 1 to 3 build the core functionality (data layer and sessions
 ### Phase 6. Observability and monetization
 
 1. Datadog on the EU site (`datadoghq.eu`): Lambda extension and `ddtrace` in the image, Datadog trace IDs in the JSON logs, a Terraform `observability` module with the Datadog provider and a first dashboard, and the custom metrics for tokens and estimated cost per request (section 9), so the margin per plan is visible from the first paid user.
-2. Define plans and entitlements in one config module; quota service with atomic counters and refunds.
+2. Define plans and entitlements in one config module; subscription and quota repositories; quota service with atomic counters and refunds; the Stripe customer GSI on the app table; plan, entitlements and remaining quota in `GET /v1/me`.
 3. Stripe products and prices in test mode (or the Paddle equivalent if the fallback is chosen); `checkout`, `portal` and webhook endpoints with signature check and idempotency.
 4. Enforce entitlements on chat, history length and modules; return `403`/`429` with clear codes.
 5. End-to-end tests with the Stripe CLI and signed fixtures, including payment failure and cancellation.
@@ -477,7 +480,7 @@ Nine phases. Phases 1 to 3 build the core functionality (data layer and sessions
 1. Western astrology and Pythagorean numerology, each as its own `domain/` package and `module` value, reusing chat, memory, quotas and notifications unchanged.
 2. Then other traditions, learning paths and comparative analysis across modules.
 
-Production web client, in parallel with the module work: React with assistant-ui and Amplify auth. Start with a basic client (login, chat, sessions, prompts, upgrade button), then the full one, including a birth-place lookup for Jyotisha profiles.
+Production web client, in parallel with the module work: React with assistant-ui and Amplify auth. Start with a basic client (login, chat, sessions, prompts, upgrade button), then the full one, including a birth-place picker for Jyotisha profiles backed by `GET /v1/places`.
 
 ## 13. Risks and open decisions
 
@@ -537,7 +540,7 @@ AsterNavium uses Swiss Ephemeris under its free AGPL licence. The licence choice
 
 - **`LICENSE` file** at the root of the application repository (`asternavium`) with the full AGPL-3.0 text.
 - **Licence metadata:** SPDX identifier in `pyproject.toml` and an `SPDX-License-Identifier` header in each source file, checked by pre-commit. Confirm the exact AGPL version (for example `AGPL-3.0-or-later`) against the Swiss Ephemeris licence text you download.
-- **`NOTICE` file** that keeps the Swiss Ephemeris copyright and licence notices (Astrodienst AG; authors Dieter Koch and Alois Treindl) and lists the licences of all other dependencies, generated in CI.
+- **`NOTICE` file** that keeps the Swiss Ephemeris copyright and licence notices (Astrodienst AG; authors Dieter Koch and Alois Treindl) and lists the licences of all other dependencies, generated in CI. It also carries the attribution for the bundled GeoNames places data (CC-BY 4.0).
 - **README** with a Licence section, how to build and run the service, and the source URL.
 - A **public** repository that contains everything needed to run the service: application code, Dockerfile, build and configuration files.
 

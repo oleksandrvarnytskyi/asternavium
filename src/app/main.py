@@ -4,6 +4,8 @@
 Run locally with ``uvicorn --factory app.main:create_app``.
 """
 
+from typing import TYPE_CHECKING
+
 from fastapi import FastAPI
 
 from app import __version__
@@ -14,12 +16,22 @@ from app.core.errors import register_error_handlers
 from app.core.licensing import LICENSE_SPDX, LICENSE_URL
 from app.core.logging import configure_logging
 from app.core.request_context import RequestIdMiddleware
+from app.repositories.dynamodb import create_dynamodb_client
+
+if TYPE_CHECKING:
+    from mypy_boto3_dynamodb import DynamoDBClient
 
 
-def create_app(settings: Settings | None = None) -> FastAPI:
+def create_app(
+    settings: Settings | None = None,
+    *,
+    dynamodb_client: "DynamoDBClient | None" = None,
+) -> FastAPI:
     """Build the FastAPI application.
 
     :param settings: Explicit settings, e.g. in tests; read from the environment if omitted.
+    :param dynamodb_client: Explicit client, e.g. a moto-backed one in tests; built from
+        settings if omitted.
     :returns: Configured application. API docs are served only in the ``dev`` environment.
     """
     resolved = settings if settings is not None else Settings()
@@ -35,6 +47,9 @@ def create_app(settings: Settings | None = None) -> FastAPI:
         openapi_url="/openapi.json" if docs_enabled else None,
     )
     app.state.settings = resolved
+    app.state.dynamodb_client = (
+        dynamodb_client if dynamodb_client is not None else create_dynamodb_client(resolved)
+    )
     app.add_middleware(RequestIdMiddleware)
     register_error_handlers(app)
     app.include_router(health.router)

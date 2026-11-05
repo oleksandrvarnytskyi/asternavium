@@ -1,8 +1,16 @@
 # SPDX-License-Identifier: AGPL-3.0-or-later
+from typing import TYPE_CHECKING
+
 from app.repositories.dynamodb_messages import DynamoDBMessageRepository
 from app.repositories.dynamodb_profiles import DynamoDBProfileRepository
 from app.repositories.dynamodb_sessions import DynamoDBSessionRepository
-from app.repositories.protocols import MessageRepository, ProfileRepository, SessionRepository
+
+if TYPE_CHECKING:
+    from app.repositories.protocols import (
+        MessageRepository,
+        ProfileRepository,
+        SessionRepository,
+    )
 
 
 def test_dynamodb_repositories_implement_protocols(

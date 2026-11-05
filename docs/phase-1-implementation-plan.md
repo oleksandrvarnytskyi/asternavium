@@ -52,7 +52,7 @@ The single-table design from section 7 of the specification, limited to what Pha
 
 | Item | PK | SK | Attributes |
 | --- | --- | --- | --- |
-| Profile | `USER#<user_id>` | `PROFILE` | birth data (required), locale, preferred tradition, expertise level, created and updated timestamps |
+| Profile | `USER#<user_id>` | `PROFILE` | birth data (required), locale (BCP 47, default `en`), preferred tradition (`jyotisha`, `bukvitsa`; default `jyotisha`), answer depth (`essentials`, `detailed`, `technical`; default `essentials`), created and updated timestamps |
 | Session | `USER#<user_id>` | `SESSION#<ulid>` | title, module, message count, created and updated timestamps |
 | Message | `SESSION#<ulid>` | `MSG#<ulid>` | role, content, created timestamp; token counts, model and trace ID are added in Phase 2 |
 
@@ -73,7 +73,7 @@ All endpoints are under `/v1`, require the dev identity in this phase, and retur
 | `PATCH /v1/sessions/{id}` | Rename | Body: `title` |
 | `DELETE /v1/sessions/{id}` | Delete the session and its messages | `204`; idempotent for the owner |
 | `GET /v1/me` | Read the current user | User ID and profile; `profile` is `null` until the first `PUT`. Plan, entitlements and quota are added in Phases 5 and 6. Decision D2 |
-| `PUT /v1/profile` | Create or replace own profile | Birth date, birth time and place ID from `GET /v1/places` (all required), ambiguity choice if needed; locale, tradition, expertise level |
+| `PUT /v1/profile` | Create or replace own profile | Birth date, birth time and place ID from `GET /v1/places` (all required), ambiguity choice if needed; locale, tradition, answer depth |
 | `DELETE /v1/me` | Delete the account and all its data | `204`; idempotent. Decision D3 |
 
 Ownership is enforced by the key design: a session is always read with the caller's `USER#<user_id>` partition key, so another user's session ID simply does not exist for them and returns `404` (`session_not_found`). Message history is read only after that ownership check.
@@ -138,9 +138,9 @@ Pure code with no I/O, in its own module.
 
 ### Step 7. Repositories
 
-1. Small repository Protocols with async methods, one per item type: `ProfileRepository`, `SessionRepository`, `MessageRepository`. Callers depend only on these.
-2. DynamoDB implementations behind them, running `boto3` calls in a worker thread (decision D6). They translate `ClientError` into domain errors at the adapter boundary, and use conditional writes where an item must or must not exist (for example, rename only an existing session).
-3. Key builders and the cursor codec in one module; the cursor is an opaque, URL-safe encoding of DynamoDB's `LastEvaluatedKey` and is validated on the way in.
+1. Small repository Protocols with async methods, one per item type: `ProfileRepository`, `SessionRepository`, `MessageRepository`. Callers depend only on these. `MessageRepository` also has `add`, which Phase 2 needs and the tests use to create messages.
+2. DynamoDB implementations behind them, running `boto3` calls in a worker thread with `anyio` (decision D6; a direct dependency, already installed through Starlette). They translate `ClientError` into domain errors at the adapter boundary: throttling, server and network errors become `storage_unavailable` (`503`), and other AWS errors stay unhandled, because they indicate a bug. They use conditional writes where an item must or must not exist (for example, rename only an existing session).
+3. Key builders and the cursor codec in one module; the cursor is an opaque, URL-safe encoding of the last item's sort key and is validated on the way in (`invalid_cursor`, `400`). The partition key always comes from the caller, so a cursor cannot reach another user's or session's items.
 4. Record types returned by the repositories as frozen dataclasses, kept with the repositories; they are not the API schemas.
 5. Tests against moto: create, read, list order and pagination across pages, rename of a missing session, delete with messages, and a user whose items do not leak into another user's queries.
 
@@ -151,7 +151,7 @@ Pure code with no I/O, in its own module.
 1. `SessionService`: create, list, get one (raising `SessionNotFoundError` when the caller does not own it), rename, delete including all messages, and list messages after the ownership check.
 2. `ProfileService`: get the profile (or none) and replace it; resolves the place ID through `PlaceRepository`, copies its name, coordinates and time zone into the profile, and computes the UTC birth instant through the birth data module.
 3. `AccountService`: delete the profile, every session and every message of one user. It is idempotent, so a retry after a partial failure finishes the job.
-4. Domain errors under `BaseAppError`, each with a code and status: `session_not_found` (`404`), `place_not_found` (`422`) and `invalid_birth_data` (`422`).
+4. Domain errors under `BaseAppError`, each with a code and status: `session_not_found` (`404`), `place_not_found` (`422`) and `invalid_birth_data` (`422`); `invalid_cursor` (`400`) and `storage_unavailable` (`503`) already come from step 7.
 5. Unit tests with in-memory fakes of the repository Protocols.
 
 **Done when:** service tests pass and no service imports `boto3`.

@@ -14,6 +14,9 @@ from app.core.config import Environment, Settings
 from app.main import create_app
 from app.repositories.app_table import ensure_app_table
 from app.repositories.dynamodb import create_dynamodb_client
+from app.repositories.dynamodb_messages import DynamoDBMessageRepository
+from app.repositories.dynamodb_profiles import DynamoDBProfileRepository
+from app.repositories.dynamodb_sessions import DynamoDBSessionRepository
 from app.repositories.geonames import (
     GeoNamesPlaceRepository,
     GeoNamesRecord,
@@ -153,3 +156,27 @@ def app_table(dynamodb_client: DynamoDBClient, settings: Settings) -> str:
     """Create the app table in moto from the app's table definition; return its name."""
     ensure_app_table(dynamodb_client, settings.app_table_name)
     return settings.app_table_name
+
+
+@pytest.fixture
+def anyio_backend() -> str:
+    """Run ``@pytest.mark.anyio`` tests on asyncio, the loop the app runs on."""
+    return "asyncio"
+
+
+@pytest.fixture
+def profiles(dynamodb_client: DynamoDBClient, app_table: str) -> DynamoDBProfileRepository:
+    """Profile repository on the moto-backed app table."""
+    return DynamoDBProfileRepository(dynamodb_client, app_table)
+
+
+@pytest.fixture
+def sessions(dynamodb_client: DynamoDBClient, app_table: str) -> DynamoDBSessionRepository:
+    """Session repository on the moto-backed app table."""
+    return DynamoDBSessionRepository(dynamodb_client, app_table)
+
+
+@pytest.fixture
+def messages(dynamodb_client: DynamoDBClient, app_table: str) -> DynamoDBMessageRepository:
+    """Message repository on the moto-backed app table."""
+    return DynamoDBMessageRepository(dynamodb_client, app_table)

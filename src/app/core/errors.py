@@ -38,6 +38,27 @@ class InvalidBirthDataError(BaseAppError):
     http_status: ClassVar[HTTPStatus] = HTTPStatus.UNPROCESSABLE_CONTENT
 
 
+class SessionNotFoundError(BaseAppError):
+    """The session does not exist or belongs to another user; the two are not distinguished."""
+
+    code: ClassVar[str] = "session_not_found"
+    http_status: ClassVar[HTTPStatus] = HTTPStatus.NOT_FOUND
+
+
+class InvalidCursorError(BaseAppError):
+    """A pagination cursor that this API did not issue for the requested list."""
+
+    code: ClassVar[str] = "invalid_cursor"
+    http_status: ClassVar[HTTPStatus] = HTTPStatus.BAD_REQUEST
+
+
+class StorageUnavailableError(BaseAppError):
+    """The database failed or timed out after the client's retries; the request may be retried."""
+
+    code: ClassVar[str] = "storage_unavailable"
+    http_status: ClassVar[HTTPStatus] = HTTPStatus.SERVICE_UNAVAILABLE
+
+
 class UnauthenticatedError(BaseAppError):
     """The request carries no valid identity."""
 

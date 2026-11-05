@@ -157,10 +157,10 @@ The two endpoints you named stay the core. Multiple sessions, billing and notifi
 | Method, path | Auth | Purpose |
 | --- | --- | --- |
 | `GET /v1/prompts` | Public | Bubble prompts for the start screen. Query: `locale`, `module`. Static JSON, cacheable, so it is fast for anonymous visitors |
-| `POST /v1/chat` | JWT + quota | Send a message. Body: `session_id` (optional, new session if omitted), `message`, `module`, `locale`. Returns `session_id`, `message_id`, `reply`, `references`, `usage` and remaining quota |
+| `POST /v1/chat` | JWT + quota | Send a message. Body: `session_id` (optional, new session if omitted), `message`, `module`, `locale`, `answer_depth` (optional, `essentials`, `detailed` or `technical`; overrides the profile's default for this answer, which falls back to `essentials` without a profile). Returns `session_id`, `message_id`, `reply`, `references`, `usage` and remaining quota |
 | `GET /v1/me` | JWT | User ID and profile (from Phase 1; `profile` is `null` until the first `PUT /v1/profile`); plan, entitlements and remaining quota are added in Phases 5 and 6 |
 | `DELETE /v1/me` | JWT | Delete the account and all its data (profile, sessions, messages); idempotent |
-| `PUT /v1/profile` | JWT | Birth data (date, time to the minute, place ID from `GET /v1/places`), preferred tradition, language, expertise level |
+| `PUT /v1/profile` | JWT | Birth data (date, time to the minute, place ID from `GET /v1/places`), preferred tradition, language, answer depth (default depth of answers) |
 | `GET /v1/places` | JWT | Search birthplaces by name in a GeoNames city dataset bundled with the app; returns place ID, name, region, country and time zone. The server fills in coordinates and time zone from the chosen place, so no birth place is sent to an external service |
 | `GET /v1/sessions` | JWT | List sessions (title, module, last activity), paginated |
 | `GET /v1/sessions/{id}/messages` | JWT | Paginated history of one session |
@@ -232,7 +232,7 @@ Lambda is stateless, so both memories live in DynamoDB. A session is one convers
 
 | Item | PK | SK | Key attributes |
 | --- | --- | --- | --- |
-| Profile | `USER#<id>` | `PROFILE` | email, locale, birth data, tradition, expertise level |
+| Profile | `USER#<id>` | `PROFILE` | email, locale, birth data, tradition, answer depth |
 | Subscription | `USER#<id>` | `SUB` | plan, status, provider customer/subscription IDs, period end |
 | Session | `USER#<id>` | `SESSION#<ulid>` | title, module, created, updated, message count |
 | Message | `SESSION#<id>` | `MSG#<ulid>` | role, content, tokens in/out, model, trace ID |

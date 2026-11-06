@@ -2,6 +2,9 @@
 """Chat sessions and messages vocabulary."""
 
 from enum import StrEnum
+from typing import Final
+
+DEFAULT_SESSION_TITLE: Final = "New chat"
 
 
 class ChatModule(StrEnum):

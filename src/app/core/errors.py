@@ -38,6 +38,13 @@ class InvalidBirthDataError(BaseAppError):
     http_status: ClassVar[HTTPStatus] = HTTPStatus.UNPROCESSABLE_CONTENT
 
 
+class PlaceNotFoundError(BaseAppError):
+    """The place ID is not in the place data, e.g. made up or from an older dataset."""
+
+    code: ClassVar[str] = "place_not_found"
+    http_status: ClassVar[HTTPStatus] = HTTPStatus.UNPROCESSABLE_CONTENT
+
+
 class SessionNotFoundError(BaseAppError):
     """The session does not exist or belongs to another user; the two are not distinguished."""
 

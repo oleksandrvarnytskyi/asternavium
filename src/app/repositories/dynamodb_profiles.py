@@ -37,6 +37,8 @@ class _Attribute(StrEnum):
     BIRTH_AMBIGUOUS_TIME = "birth_ambiguous_time"
     BIRTH_PLACE_ID = "birth_place_id"
     BIRTH_PLACE_NAME = "birth_place_name"
+    BIRTH_PLACE_REGION = "birth_place_region"
+    BIRTH_PLACE_COUNTRY = "birth_place_country"
     BIRTH_LATITUDE = "birth_latitude"
     BIRTH_LONGITUDE = "birth_longitude"
     BIRTH_TIMEZONE = "birth_timezone"
@@ -58,6 +60,7 @@ def _to_item(profile: ProfileRecord) -> Item:
         ),
         _Attribute.BIRTH_PLACE_ID: string_value(birth.place_id),
         _Attribute.BIRTH_PLACE_NAME: string_value(birth.place_name),
+        _Attribute.BIRTH_PLACE_COUNTRY: string_value(birth.place_country),
         _Attribute.BIRTH_LATITUDE: number_value(birth.latitude),
         _Attribute.BIRTH_LONGITUDE: number_value(birth.longitude),
         _Attribute.BIRTH_TIMEZONE: string_value(birth.timezone),
@@ -71,6 +74,8 @@ def _to_item(profile: ProfileRecord) -> Item:
     }
     if birth.ambiguous_time is not None:
         item[_Attribute.BIRTH_AMBIGUOUS_TIME] = string_value(birth.ambiguous_time)
+    if birth.place_region is not None:
+        item[_Attribute.BIRTH_PLACE_REGION] = string_value(birth.place_region)
     return item
 
 
@@ -82,6 +87,8 @@ def _from_item(item: Item) -> ProfileRecord:
         ambiguous_time=None if ambiguous_time is None else AmbiguousTimeChoice(ambiguous_time),
         place_id=read_string(item, _Attribute.BIRTH_PLACE_ID),
         place_name=read_string(item, _Attribute.BIRTH_PLACE_NAME),
+        place_region=read_optional_string(item, _Attribute.BIRTH_PLACE_REGION),
+        place_country=read_string(item, _Attribute.BIRTH_PLACE_COUNTRY),
         latitude=read_float(item, _Attribute.BIRTH_LATITUDE),
         longitude=read_float(item, _Attribute.BIRTH_LONGITUDE),
         timezone=read_string(item, _Attribute.BIRTH_TIMEZONE),

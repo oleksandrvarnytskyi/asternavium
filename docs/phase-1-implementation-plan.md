@@ -56,7 +56,7 @@ The single-table design from section 7 of the specification, limited to what Pha
 | Session | `USER#<user_id>` | `SESSION#<ulid>` | title, module, message count, created and updated timestamps |
 | Message | `SESSION#<ulid>` | `MSG#<ulid>` | role, content, created timestamp; token counts, model and trace ID are added in Phase 2 |
 
-Birth data is stored as: the local date, the local time (to the minute), the ambiguity choice where it applied, the GeoNames place ID with its display name, latitude, longitude and IANA time zone copied from the dataset at save time, the dataset version, and the UTC instant computed from them. Copying the place values means a later dataset refresh never changes a saved profile silently. Keeping both the original local values and the UTC instant follows the CLAUDE.md time rules and lets a later change in time zone data be corrected.
+Birth data is stored as: the local date, the local time (to the minute), the ambiguity choice where it applied, the GeoNames place ID with its display name, region and country (so places with the same name, such as Paris in France and in Texas, stay distinguishable), latitude, longitude and IANA time zone copied from the dataset at save time, the dataset version, and the UTC instant computed from them. Copying the place values means a later dataset refresh never changes a saved profile silently. Keeping both the original local values and the UTC instant follows the CLAUDE.md time rules and lets a later change in time zone data be corrected.
 
 The table has `PK` and `SK` as string keys, on-demand capacity, and TTL on an `expires_at` attribute (unused until the quota items in Phase 6). The table definition lives in one place in the app; the local table script and the moto test fixtures both use it, and the Terraform `data` module in Phase 4 must match it.
 
@@ -71,7 +71,7 @@ All endpoints are under `/v1`, require the dev identity in this phase, and retur
 | `GET /v1/sessions` | List own sessions, newest first | Query: `limit`, `cursor` |
 | `GET /v1/sessions/{id}/messages` | One session's history, newest first | Query: `limit`, `cursor`. Empty until Phase 2 writes messages |
 | `PATCH /v1/sessions/{id}` | Rename | Body: `title` |
-| `DELETE /v1/sessions/{id}` | Delete the session and its messages | `204`; idempotent for the owner |
+| `DELETE /v1/sessions/{id}` | Delete the session and its messages | `204`; idempotent. An ID the caller has no session with also returns `204` and changes nothing, since a repeat delete by the owner cannot be told apart from another user's ID |
 | `GET /v1/me` | Read the current user | User ID and profile; `profile` is `null` until the first `PUT`. Plan, entitlements and quota are added in Phases 5 and 6. Decision D2 |
 | `PUT /v1/profile` | Create or replace own profile | Birth date, birth time and place ID from `GET /v1/places` (all required), ambiguity choice if needed; locale, tradition, answer depth |
 | `DELETE /v1/me` | Delete the account and all its data | `204`; idempotent. Decision D3 |
@@ -161,7 +161,7 @@ Pure code with no I/O, in its own module.
 1. Request and response schemas in `schemas/`: sessions, messages, pages (items plus `next_cursor`) and profile. Responses never include internal keys (`PK`, `SK`).
 2. Routers `api/v1/sessions.py`, `api/v1/profile.py` (`PUT`) and `api/v1/me.py` (`GET` and `DELETE`), with no business logic: validate, call the service, map the result. Wire the services through `Depends` from the composition root.
 3. Input limits: title length, page size, place query length, and the existing request validation that never echoes input.
-4. API tests with `TestClient` against moto: every endpoint, the cross-user `404` for each session endpoint, pagination, account deletion, and the `401` cases.
+4. API tests with `TestClient` against moto: every endpoint, the cross-user `404` for each session endpoint (for `DELETE`, `204` with the other user's session left intact), pagination, account deletion, and the `401` cases.
 
 **Done when:** the API tests pass, and the OpenAPI schema in Swagger UI shows every endpoint with its error responses.
 

@@ -1,5 +1,6 @@
 # SPDX-License-Identifier: AGPL-3.0-or-later
 import logging
+import threading
 from datetime import UTC, datetime, timedelta, timezone
 from typing import TYPE_CHECKING, Any, NoReturn, cast
 
@@ -58,8 +59,12 @@ def _session_item(session_id: str) -> Item:
     return key_item(USER_PARTITION, session_key(session_id))
 
 
-async def test_run_dynamodb_returns_call_result() -> None:
-    assert await run_dynamodb("GetItem", lambda: 42) == 42
+async def test_run_dynamodb_runs_call_in_worker_thread() -> None:
+    event_loop_thread = threading.get_ident()
+
+    call_thread = await run_dynamodb("GetItem", threading.get_ident)
+
+    assert call_thread != event_loop_thread
 
 
 async def test_run_dynamodb_translates_failed_condition() -> None:

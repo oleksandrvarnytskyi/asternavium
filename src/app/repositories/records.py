@@ -30,14 +30,18 @@ class BirthRecord:
 
     Copying the place means a later refresh of the place data never changes a saved profile.
 
-    :ivar local_date: Birth date at the birth place.
-    :ivar local_time: Wall-clock birth time at the birth place, to the minute.
+    :ivar local_date: Birthdate at the birthplace.
+    :ivar local_time: Wall-clock birth time at the birthplace, to the minute.
     :ivar ambiguous_time: Choice made for a time that occurred twice; ``None`` otherwise.
-    :ivar place_id: Opaque ID of the birth place.
-    :ivar place_name: Display name of the birth place at save time.
+    :ivar place_id: Opaque ID of the birthplace.
+    :ivar place_name: Display name of the birthplace at save time.
+    :ivar place_region: First-level division of the birthplace (state, oblast) at save time,
+        or ``None`` if the place data has none; with the country it tells apart places with
+        the same name.
+    :ivar place_country: Country of the birthplace in English at save time.
     :ivar latitude: Degrees north of the equator, -90 to 90 (WGS84).
     :ivar longitude: Degrees east of Greenwich, -180 to 180 (WGS84).
-    :ivar timezone: IANA time zone name of the birth place.
+    :ivar timezone: IANA time zone name of the birthplace.
     :ivar places_dataset_version: Version of the place data the place was copied from.
     :ivar instant_utc: Birth instant computed from the local values and the zone.
     """
@@ -47,6 +51,8 @@ class BirthRecord:
     ambiguous_time: AmbiguousTimeChoice | None
     place_id: str
     place_name: str
+    place_region: str | None
+    place_country: str
     latitude: float
     longitude: float
     timezone: str

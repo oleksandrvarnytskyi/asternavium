@@ -23,6 +23,8 @@ def _profile(user_id: str = "alice", **changes: object) -> ProfileRecord:
         ambiguous_time=None,
         place_id="703448",
         place_name="Kyiv",
+        place_region="Kyiv City",
+        place_country="Ukraine",
         latitude=50.45466,
         longitude=30.5238,
         timezone="Europe/Kyiv",
@@ -62,6 +64,16 @@ async def test_put_round_trips_ambiguous_time_choice(profiles: DynamoDBProfileRe
         instant_utc=datetime(2021, 10, 31, 1, 30, tzinfo=UTC),
     )
     profile = _profile(birth=ambiguous_birth)
+
+    await profiles.put(profile)
+
+    assert await profiles.get("alice") == profile
+
+
+async def test_put_round_trips_place_without_region(
+    profiles: DynamoDBProfileRepository,
+) -> None:
+    profile = _profile(birth=dataclasses.replace(_profile().birth, place_region=None))
 
     await profiles.put(profile)
 

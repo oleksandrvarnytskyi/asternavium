@@ -99,3 +99,26 @@ def test_birth_data_input_error_messages_omit_submitted_values() -> None:
     messages = _error_messages(date="1899-12-31", time="14:30:15")
 
     assert not any("1899-12-31" in message or "14:30" in message for message in messages)
+
+
+def test_birth_data_input_accepts_iso_text_from_decoded_json() -> None:
+    # FastAPI validates the decoded JSON body, not the raw text.
+    birth = BirthDataInput.model_validate(VALID)
+
+    assert (birth.date, birth.time) == (date(1990, 5, 17), time(14, 30))
+
+
+def test_birth_data_input_accepts_date_and_time_values() -> None:
+    birth = BirthDataInput.model_validate(
+        {**VALID, "date": date(1990, 5, 17), "time": time(14, 30)}
+    )
+
+    assert (birth.date, birth.time) == (date(1990, 5, 17), time(14, 30))
+
+
+@pytest.mark.parametrize(("field", "value"), [("date", 19900517), ("time", 52200)])
+def test_birth_data_input_rejects_number_from_decoded_json(field: str, value: int) -> None:
+    with pytest.raises(ValidationError) as caught:
+        BirthDataInput.model_validate({**VALID, field: value})
+
+    assert [error["loc"] for error in caught.value.errors()] == [(field,)]

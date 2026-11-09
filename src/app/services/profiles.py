@@ -1,6 +1,7 @@
 # SPDX-License-Identifier: AGPL-3.0-or-later
 """A user's profile: preferences and the link to the person who is the account owner."""
 
+import dataclasses
 from typing import Final
 
 from app.core.clock import Clock, utc_now
@@ -28,8 +29,17 @@ class ProfileService:
         self._clock = clock
 
     async def get(self, user_id: str) -> ProfileRecord | None:
-        """Return the user's profile, or ``None`` before the first save."""
-        return await self._profiles.get(user_id)
+        """Return the user's profile, or ``None`` before the first save.
+
+        An ``owner_person_id`` naming a person that no longer exists is returned as ``None``:
+        a profile save that races with deleting that person can leave such a link behind.
+        """
+        profile = await self._profiles.get(user_id)
+        if profile is None or profile.owner_person_id is None:
+            return profile
+        if await self._persons.get(user_id, profile.owner_person_id) is None:
+            return dataclasses.replace(profile, owner_person_id=None)
+        return profile
 
     async def replace(
         self,

@@ -1,5 +1,6 @@
 # SPDX-License-Identifier: AGPL-3.0-or-later
 # All birth data here is synthetic; none of it belongs to a real person.
+import dataclasses
 from datetime import UTC, date, datetime, time, timedelta
 
 import pytest
@@ -85,6 +86,33 @@ async def _replace(
 
 async def test_get_returns_none_before_first_save(service: ProfileService) -> None:
     assert await service.get("alice") is None
+
+
+async def test_get_keeps_link_to_existing_person(
+    service: ProfileService, person_repository: InMemoryPersonRepository
+) -> None:
+    person_id = await _add_person(person_repository)
+    await _replace(service, owner_person_id=person_id)
+
+    profile = await service.get("alice")
+
+    assert profile is not None
+    assert profile.owner_person_id == person_id
+
+
+async def test_get_reports_link_to_deleted_person_as_none(
+    service: ProfileService,
+    person_repository: InMemoryPersonRepository,
+    profile_repository: InMemoryProfileRepository,
+) -> None:
+    person_id = await _add_person(person_repository)
+    saved = await _replace(service, owner_person_id=person_id)
+    await person_repository.delete("alice", person_id)
+
+    profile = await service.get("alice")
+
+    assert profile == dataclasses.replace(saved, owner_person_id=None)
+    assert await profile_repository.get("alice") == saved
 
 
 async def test_replace_stores_preferences(service: ProfileService) -> None:

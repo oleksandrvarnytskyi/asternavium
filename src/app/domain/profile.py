@@ -23,10 +23,10 @@ class AnswerDepth(StrEnum):
     user's default; from Phase 2 a chat request may override it for one answer.
     """
 
-    ESSENTIALS = "essentials"
+    SIMPLE = "simple"
     DETAILED = "detailed"
     TECHNICAL = "technical"
 
 
 DEFAULT_TRADITIONS: Final = frozenset({Tradition.JYOTISHA})
-DEFAULT_ANSWER_DEPTH: Final = AnswerDepth.ESSENTIALS
+DEFAULT_ANSWER_DEPTH: Final = AnswerDepth.SIMPLE

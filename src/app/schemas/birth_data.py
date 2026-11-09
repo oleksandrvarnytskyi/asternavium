@@ -21,13 +21,11 @@ class BirthDataInput(BaseModel):
     model_config = ConfigDict(extra="forbid", frozen=True)
 
     date: dt.date = Field(
-        strict=True,
         ge=EARLIEST_BIRTH_DATE,
         description=f"Local birth date from {EARLIEST_BIRTH_DATE.isoformat()} on, e.g. "
-        "``1990-05-17``; a date in the future is rejected when the profile is saved.",
+        "``1990-05-17``; a birth in the future is rejected when the person is saved.",
     )
     time: dt.time = Field(
-        strict=True,
         description="Local wall-clock birth time to the minute, e.g. ``14:30``; no UTC offset.",
     )
     place_id: str = Field(
@@ -38,6 +36,19 @@ class BirthDataInput(BaseModel):
         description="Required only if the birth time occurred twice because clocks were set "
         "back: ``earlier`` or ``later``.",
     )
+
+    @field_validator("date", "time", mode="before")
+    @classmethod
+    def _require_iso_text(cls, value: object) -> object:
+        """Reject numbers, which lax parsing would read as a timestamp or seconds of the day.
+
+        Strict mode cannot do this: FastAPI validates the decoded JSON, where strict mode
+        refuses ISO text as well.
+        """
+        if isinstance(value, str | dt.date | dt.time):
+            return value
+        msg = "must be ISO 8601 text, e.g. 1990-05-17 for a date or 14:30 for a time"
+        raise ValueError(msg)
 
     @field_validator("time")
     @classmethod

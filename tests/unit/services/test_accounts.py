@@ -68,7 +68,7 @@ async def _create_account(services: _Services, user_id: str) -> list[SessionReco
         user_id,
         locale="en",
         traditions=frozenset({Tradition.JYOTISHA}),
-        answer_depth=AnswerDepth.ESSENTIALS,
+        answer_depth=AnswerDepth.SIMPLE,
         owner_person_id=owner.person_id,
     )
     created = [await services.sessions.create(user_id, module=ChatModule.GENERAL) for _ in range(2)]

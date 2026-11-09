@@ -67,7 +67,7 @@ async def _save_profile(
         user_id="alice",
         locale="uk",
         traditions=frozenset({Tradition.JYOTISHA}),
-        answer_depth=AnswerDepth.ESSENTIALS,
+        answer_depth=AnswerDepth.SIMPLE,
         owner_person_id=owner_person_id,
         created_at=NOW,
         updated_at=NOW,

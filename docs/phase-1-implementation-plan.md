@@ -53,7 +53,7 @@ The single-table design from section 7 of the specification, limited to what Pha
 
 | Item | PK | SK | Attributes |
 | --- | --- | --- | --- |
-| Profile | `USER#<user_id>` | `PROFILE` | locale (BCP 47, default `en`), traditions the user is interested in (a non-empty, unordered set of `jyotisha` and `bukvitsa`; default `{jyotisha}`; stored as a string set), answer depth (`essentials`, `detailed`, `technical`; default `essentials`), own person ID (optional), created and updated timestamps |
+| Profile | `USER#<user_id>` | `PROFILE` | locale (BCP 47, default `en`), traditions the user is interested in (a non-empty, unordered set of `jyotisha` and `bukvitsa`; default `{jyotisha}`; stored as a string set), answer depth (`simple`, `detailed`, `technical`; default `simple`), own person ID (optional), created and updated timestamps |
 | Person | `USER#<user_id>` | `PERSON#<ulid>` | label (1 to 50 characters), birth data (required), created and updated timestamps |
 | Session | `USER#<user_id>` | `SESSION#<ulid>` | title, module, message count, created and updated timestamps |
 | Message | `SESSION#<ulid>` | `MSG#<ulid>` | role, content, created timestamp; token counts, model and trace ID are added in Phase 2 |

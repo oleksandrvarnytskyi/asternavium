@@ -11,6 +11,10 @@ from app.core.config import Environment, Settings
 from app.core.errors import UnauthenticatedError
 from app.core.identity import Principal
 from app.repositories.places import PlaceRepository
+from app.services.accounts import AccountService
+from app.services.persons import PersonService
+from app.services.profiles import ProfileService
+from app.services.sessions import SessionService
 
 DEV_USER_HEADER: Final = "X-Dev-User"
 # The ID ends up in DynamoDB keys, so only a small safe alphabet is accepted.
@@ -41,6 +45,42 @@ def get_place_repository(request: Request) -> PlaceRepository:
 
 
 PlaceRepositoryDep = Annotated[PlaceRepository, Depends(get_place_repository)]
+
+
+def get_session_service(request: Request) -> SessionService:
+    """Return the session service built at startup."""
+    service: SessionService = request.app.state.session_service
+    return service
+
+
+SessionServiceDep = Annotated[SessionService, Depends(get_session_service)]
+
+
+def get_person_service(request: Request) -> PersonService:
+    """Return the person service built at startup."""
+    service: PersonService = request.app.state.person_service
+    return service
+
+
+PersonServiceDep = Annotated[PersonService, Depends(get_person_service)]
+
+
+def get_profile_service(request: Request) -> ProfileService:
+    """Return the profile service built at startup."""
+    service: ProfileService = request.app.state.profile_service
+    return service
+
+
+ProfileServiceDep = Annotated[ProfileService, Depends(get_profile_service)]
+
+
+def get_account_service(request: Request) -> AccountService:
+    """Return the account service built at startup."""
+    service: AccountService = request.app.state.account_service
+    return service
+
+
+AccountServiceDep = Annotated[AccountService, Depends(get_account_service)]
 
 
 def get_current_user(

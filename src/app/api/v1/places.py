@@ -1,11 +1,13 @@
 # SPDX-License-Identifier: AGPL-3.0-or-later
 """Birthplace search over the bundled GeoNames dataset."""
 
+from http import HTTPStatus
 from typing import Annotated, Final
 
 from fastapi import APIRouter, Depends, Query
 
 from app.api.deps import PlaceRepositoryDep, get_current_user
+from app.api.responses import error_responses
 from app.schemas.places import PlaceSearchResponse, PlaceSummary
 
 QUERY_MIN_LENGTH: Final = 2
@@ -13,7 +15,11 @@ QUERY_MAX_LENGTH: Final = 100
 DEFAULT_LIMIT: Final = 10
 MAX_LIMIT: Final = 20
 
-router = APIRouter(tags=["places"], dependencies=[Depends(get_current_user)])
+router = APIRouter(
+    tags=["places"],
+    dependencies=[Depends(get_current_user)],
+    responses=error_responses(HTTPStatus.UNAUTHORIZED, HTTPStatus.UNPROCESSABLE_CONTENT),
+)
 
 
 @router.get("/places")

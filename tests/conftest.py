@@ -187,3 +187,17 @@ def sessions(dynamodb_client: DynamoDBClient, app_table: str) -> DynamoDBSession
 def messages(dynamodb_client: DynamoDBClient, app_table: str) -> DynamoDBMessageRepository:
     """Message repository on the moto-backed app table."""
     return DynamoDBMessageRepository(dynamodb_client, app_table)
+
+
+@pytest.fixture
+def api_client(
+    settings: Settings,
+    dynamodb_client: DynamoDBClient,
+    app_table: str,
+    place_repository: GeoNamesPlaceRepository,
+) -> Iterator[TestClient]:
+    """The app on the moto-backed app table, with the synthetic places."""
+    assert app_table == settings.app_table_name
+    app = create_app(settings, dynamodb_client=dynamodb_client, place_repository=place_repository)
+    with TestClient(app) as test_client:
+        yield test_client

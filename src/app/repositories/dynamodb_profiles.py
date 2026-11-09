@@ -78,7 +78,7 @@ class DynamoDBProfileRepository:
             lambda: self._client.get_item(TableName=self._table_name, Key=key, ConsistentRead=True),
         )
         item = response.get("Item")
-        return None if item is None else _from_item(item)
+        return _from_item(item) if item else None
 
     async def put(self, profile: ProfileRecord) -> None:
         """Create or replace the user's profile."""

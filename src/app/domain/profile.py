@@ -10,7 +10,7 @@ LOCALE_PATTERN: Final = r"^[a-z]{2,3}(-[A-Z][a-z]{3})?(-([A-Z]{2}|\d{3}))?$"
 
 
 class Tradition(StrEnum):
-    """Knowledge system the user is interested in; a profile holds a non-empty set of them."""
+    """Knowledge system the user prefers answers from."""
 
     JYOTISHA = "jyotisha"
     BUKVITSA = "bukvitsa"
@@ -28,5 +28,5 @@ class AnswerDepth(StrEnum):
     TECHNICAL = "technical"
 
 
-DEFAULT_TRADITIONS: Final = frozenset({Tradition.JYOTISHA})
+DEFAULT_TRADITION: Final = Tradition.JYOTISHA
 DEFAULT_ANSWER_DEPTH: Final = AnswerDepth.ESSENTIALS

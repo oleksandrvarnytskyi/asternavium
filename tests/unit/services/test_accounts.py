@@ -1,13 +1,11 @@
 # SPDX-License-Identifier: AGPL-3.0-or-later
 # All birth data here is synthetic; none of it belongs to a real person.
-from dataclasses import dataclass
 from datetime import UTC, date, datetime, time
 
 import pytest
 from service_fakes import (
     FakeClock,
     InMemoryMessageRepository,
-    InMemoryPersonRepository,
     InMemoryProfileRepository,
     InMemorySessionRepository,
 )
@@ -20,7 +18,6 @@ from app.domain.profile import AnswerDepth, Tradition
 from app.repositories.geonames import GeoNamesPlaceRepository
 from app.repositories.records import MessageRecord, SessionRecord
 from app.services.accounts import AccountService
-from app.services.persons import PersonService
 from app.services.profiles import ProfileService
 from app.services.sessions import SessionService
 
@@ -31,49 +28,43 @@ NOW = datetime(2026, 11, 6, 12, 0, tzinfo=UTC)
 BIRTH = BirthData(local_date=date(1990, 5, 17), local_time=time(14, 30), place_id="4")
 
 
-@dataclass(frozen=True, slots=True)
-class _Services:
-    """The services an account spans, sharing one set of in-memory repositories."""
-
-    profiles: ProfileService
-    persons: PersonService
-    sessions: SessionService
-    messages: InMemoryMessageRepository
-    accounts: AccountService
+@pytest.fixture
+def message_repository() -> InMemoryMessageRepository:
+    return InMemoryMessageRepository()
 
 
 @pytest.fixture
-def services(place_repository: GeoNamesPlaceRepository) -> _Services:
-    clock = FakeClock(NOW)
-    profile_repository = InMemoryProfileRepository()
-    person_repository = InMemoryPersonRepository()
-    message_repository = InMemoryMessageRepository()
-    profiles = ProfileService(profile_repository, person_repository, clock=clock)
-    persons = PersonService(person_repository, profile_repository, place_repository, clock=clock)
-    sessions = SessionService(InMemorySessionRepository(), message_repository, clock=clock)
-    return _Services(
-        profiles=profiles,
-        persons=persons,
-        sessions=sessions,
-        messages=message_repository,
-        accounts=AccountService(profiles, persons, sessions),
-    )
+def profiles(place_repository: GeoNamesPlaceRepository) -> ProfileService:
+    return ProfileService(InMemoryProfileRepository(), place_repository, clock=FakeClock(NOW))
 
 
-async def _create_account(services: _Services, user_id: str) -> list[SessionRecord]:
-    """Give the user two persons, a profile linked to one, and two sessions with a message."""
-    owner = await services.persons.create(user_id, label="Me", birth=BIRTH)
-    await services.persons.create(user_id, label="Mum", birth=BIRTH)
-    await services.profiles.replace(
+@pytest.fixture
+def sessions(message_repository: InMemoryMessageRepository) -> SessionService:
+    return SessionService(InMemorySessionRepository(), message_repository, clock=FakeClock(NOW))
+
+
+@pytest.fixture
+def accounts(profiles: ProfileService, sessions: SessionService) -> AccountService:
+    return AccountService(profiles, sessions)
+
+
+async def _create_account(
+    user_id: str,
+    profiles: ProfileService,
+    sessions: SessionService,
+    messages: InMemoryMessageRepository,
+) -> list[SessionRecord]:
+    """Give the user a profile and two sessions with one message each."""
+    await profiles.replace(
         user_id,
+        birth=BIRTH,
         locale="en",
-        traditions=frozenset({Tradition.JYOTISHA}),
+        tradition=Tradition.JYOTISHA,
         answer_depth=AnswerDepth.ESSENTIALS,
-        owner_person_id=owner.person_id,
     )
-    created = [await services.sessions.create(user_id, module=ChatModule.GENERAL) for _ in range(2)]
+    created = [await sessions.create(user_id, module=ChatModule.GENERAL) for _ in range(2)]
     for session in created:
-        await services.messages.add(
+        await messages.add(
             MessageRecord(
                 session_id=session.session_id,
                 message_id=str(ULID()),
@@ -85,63 +76,71 @@ async def _create_account(services: _Services, user_id: str) -> list[SessionReco
     return created
 
 
-async def _session_count(services: _Services, user_id: str) -> int:
-    return len((await services.sessions.list_page(user_id, limit=50, cursor=None)).items)
-
-
-async def _person_count(services: _Services, user_id: str) -> int:
-    return len((await services.persons.list_page(user_id, limit=50, cursor=None)).items)
-
-
 async def _assert_account_empty(
-    services: _Services, user_id: str, removed: list[SessionRecord]
+    user_id: str,
+    removed: list[SessionRecord],
+    profiles: ProfileService,
+    sessions: SessionService,
+    messages: InMemoryMessageRepository,
 ) -> None:
-    assert await services.profiles.get(user_id) is None
-    assert await _person_count(services, user_id) == 0
-    assert await _session_count(services, user_id) == 0
-    assert all(services.messages.count(session.session_id) == 0 for session in removed)
+    assert await profiles.get(user_id) is None
+    assert (await sessions.list_page(user_id, limit=50, cursor=None)).items == ()
+    assert all(messages.count(session.session_id) == 0 for session in removed)
 
 
-async def test_delete_removes_profile_persons_sessions_and_messages(
-    services: _Services,
+async def test_delete_removes_profile_sessions_and_messages(
+    accounts: AccountService,
+    profiles: ProfileService,
+    sessions: SessionService,
+    message_repository: InMemoryMessageRepository,
 ) -> None:
-    created = await _create_account(services, "alice")
+    created = await _create_account("alice", profiles, sessions, message_repository)
 
-    await services.accounts.delete("alice")
+    await accounts.delete("alice")
 
-    await _assert_account_empty(services, "alice", created)
-
-
-async def test_delete_leaves_other_accounts(services: _Services) -> None:
-    await _create_account(services, "alice")
-    bobs_sessions = await _create_account(services, "bob")
-
-    await services.accounts.delete("alice")
-
-    assert await services.profiles.get("bob") is not None
-    assert await _person_count(services, "bob") == 2
-    assert await _session_count(services, "bob") == 2
-    assert all(services.messages.count(session.session_id) == 1 for session in bobs_sessions)
+    await _assert_account_empty("alice", created, profiles, sessions, message_repository)
 
 
-async def test_delete_of_user_without_data_does_nothing(services: _Services) -> None:
-    await services.accounts.delete("alice")
+async def test_delete_leaves_other_accounts(
+    accounts: AccountService,
+    profiles: ProfileService,
+    sessions: SessionService,
+    message_repository: InMemoryMessageRepository,
+) -> None:
+    await _create_account("alice", profiles, sessions, message_repository)
+    bobs_sessions = await _create_account("bob", profiles, sessions, message_repository)
 
-    await _assert_account_empty(services, "alice", [])
+    await accounts.delete("alice")
+
+    assert await profiles.get("bob") is not None
+    assert len((await sessions.list_page("bob", limit=50, cursor=None)).items) == 2
+    assert all(message_repository.count(session.session_id) == 1 for session in bobs_sessions)
 
 
-async def test_delete_retry_after_partial_failure_finishes(services: _Services) -> None:
-    created = await _create_account(services, "alice")
+async def test_delete_of_user_without_data_does_nothing(
+    accounts: AccountService, profiles: ProfileService
+) -> None:
+    await accounts.delete("alice")
+
+    assert await profiles.get("alice") is None
+
+
+async def test_delete_retry_after_partial_failure_finishes(
+    accounts: AccountService,
+    profiles: ProfileService,
+    sessions: SessionService,
+    message_repository: InMemoryMessageRepository,
+) -> None:
+    created = await _create_account("alice", profiles, sessions, message_repository)
     # Sessions are deleted newest first, so the oldest one fails after the other is gone.
     oldest = min(created, key=lambda session: session.session_id)
-    services.messages.fail_delete_all_once = {oldest.session_id}
+    message_repository.fail_delete_all_once = {oldest.session_id}
 
     with pytest.raises(StorageUnavailableError):
-        await services.accounts.delete("alice")
-    assert await _session_count(services, "alice") == 1
-    assert await _person_count(services, "alice") == 2
-    assert await services.profiles.get("alice") is not None
+        await accounts.delete("alice")
+    assert len((await sessions.list_page("alice", limit=50, cursor=None)).items) == 1
+    assert await profiles.get("alice") is not None
 
-    await services.accounts.delete("alice")
+    await accounts.delete("alice")
 
-    await _assert_account_empty(services, "alice", created)
+    await _assert_account_empty("alice", created, profiles, sessions, message_repository)

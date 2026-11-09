@@ -19,10 +19,8 @@ from app.repositories.dynamodb_support import (
     read_float,
     read_int,
     read_optional_string,
-    read_string_set,
     read_timestamp,
     run_dynamodb,
-    string_set_value,
     string_value,
     timestamp_value,
 )
@@ -135,21 +133,6 @@ def test_attribute_values_round_trip() -> None:
     assert read_int(item, "count") == 3
     assert read_float(item, "latitude") == 50.45466
     assert read_timestamp(item, "at") == moment
-
-
-def test_string_set_value_writes_sorted_members_once() -> None:
-    assert string_set_value(["b", "a", "b"]) == {"SS": ["a", "b"]}
-
-
-def test_string_set_value_rejects_empty_set() -> None:
-    with pytest.raises(ValueError, match="at least one"):
-        string_set_value([])
-
-
-def test_string_set_round_trips() -> None:
-    item: Item = {"tags": string_set_value({"x", "y"})}
-
-    assert read_string_set(item, "tags") == frozenset({"x", "y"})
 
 
 def test_read_optional_string_handles_present_and_missing_attribute() -> None:

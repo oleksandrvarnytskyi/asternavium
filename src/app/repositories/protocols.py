@@ -8,13 +8,7 @@ fails; other errors are listed per method.
 from datetime import datetime
 from typing import Protocol
 
-from app.repositories.records import (
-    MessageRecord,
-    Page,
-    PersonRecord,
-    ProfileRecord,
-    SessionRecord,
-)
+from app.repositories.records import MessageRecord, Page, ProfileRecord, SessionRecord
 
 
 class ProfileRepository(Protocol):
@@ -30,45 +24,6 @@ class ProfileRepository(Protocol):
 
     async def delete(self, user_id: str) -> None:
         """Delete the user's profile; does nothing if there is none."""
-        ...
-
-
-class PersonRepository(Protocol):
-    """Persons of a user, always addressed through their owner."""
-
-    async def create(self, person: PersonRecord) -> None:
-        """Store a new person.
-
-        :raises ValueError: If a person with this ID already exists for the user; a ULID
-            collision, so a programming error.
-        """
-        ...
-
-    async def get(self, user_id: str, person_id: str) -> PersonRecord | None:
-        """Return the person, or ``None`` if the user has no person with this ID."""
-        ...
-
-    async def list_page(
-        self, user_id: str, *, limit: int, cursor: str | None
-    ) -> Page[PersonRecord]:
-        """Return the user's persons, newest first.
-
-        :param limit: Maximum persons on the page; positive.
-        :param cursor: ``next_cursor`` of the previous page, or ``None`` for the first page.
-        :raises InvalidCursorError: If ``cursor`` was not issued for this list.
-        """
-        ...
-
-    async def replace(self, person: PersonRecord) -> None:
-        """Overwrite an existing person.
-
-        :raises PersonNotFoundError: If the user has no person with this ID, e.g. it was
-            deleted meanwhile.
-        """
-        ...
-
-    async def delete(self, user_id: str, person_id: str) -> None:
-        """Delete the person; does nothing if it does not exist."""
         ...
 
 

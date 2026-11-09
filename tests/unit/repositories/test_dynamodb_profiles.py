@@ -1,13 +1,14 @@
 # SPDX-License-Identifier: AGPL-3.0-or-later
+# All birth data here is synthetic; none of it belongs to a real person.
 import dataclasses
-from datetime import UTC, datetime
+from datetime import UTC, date, datetime, time
 
 import pytest
-from ulid import ULID
 
+from app.domain.birth_data import AmbiguousTimeChoice
 from app.domain.profile import AnswerDepth, Tradition
 from app.repositories.dynamodb_profiles import DynamoDBProfileRepository
-from app.repositories.records import ProfileRecord
+from app.repositories.records import BirthRecord, ProfileRecord
 
 pytestmark = pytest.mark.anyio
 
@@ -16,12 +17,26 @@ UPDATED = datetime(2026, 11, 5, 9, 30, tzinfo=UTC)
 
 
 def _profile(user_id: str = "alice", **changes: object) -> ProfileRecord:
+    birth = BirthRecord(
+        local_date=date(1990, 5, 17),
+        local_time=time(14, 30),
+        ambiguous_time=None,
+        place_id="703448",
+        place_name="Kyiv",
+        place_region="Kyiv City",
+        place_country="Ukraine",
+        latitude=50.45466,
+        longitude=30.5238,
+        timezone="Europe/Kyiv",
+        places_dataset_version="2026-11-04",
+        instant_utc=datetime(1990, 5, 17, 10, 30, tzinfo=UTC),
+    )
     profile = ProfileRecord(
         user_id=user_id,
+        birth=birth,
         locale="uk",
-        traditions=frozenset({Tradition.JYOTISHA}),
+        tradition=Tradition.JYOTISHA,
         answer_depth=AnswerDepth.ESSENTIALS,
-        owner_person_id=None,
         created_at=CREATED,
         updated_at=CREATED,
     )
@@ -40,16 +55,25 @@ async def test_put_then_get_round_trips_every_field(profiles: DynamoDBProfileRep
     assert await profiles.get("alice") == profile
 
 
-async def test_put_round_trips_several_traditions(profiles: DynamoDBProfileRepository) -> None:
-    profile = _profile(traditions=frozenset({Tradition.JYOTISHA, Tradition.BUKVITSA}))
+async def test_put_round_trips_ambiguous_time_choice(profiles: DynamoDBProfileRepository) -> None:
+    ambiguous_birth = dataclasses.replace(
+        _profile().birth,
+        local_date=date(2021, 10, 31),
+        local_time=time(3, 30),
+        ambiguous_time=AmbiguousTimeChoice.LATER,
+        instant_utc=datetime(2021, 10, 31, 1, 30, tzinfo=UTC),
+    )
+    profile = _profile(birth=ambiguous_birth)
 
     await profiles.put(profile)
 
     assert await profiles.get("alice") == profile
 
 
-async def test_put_round_trips_owner_person_id(profiles: DynamoDBProfileRepository) -> None:
-    profile = _profile(owner_person_id=str(ULID()))
+async def test_put_round_trips_place_without_region(
+    profiles: DynamoDBProfileRepository,
+) -> None:
+    profile = _profile(birth=dataclasses.replace(_profile().birth, place_region=None))
 
     await profiles.put(profile)
 
@@ -57,11 +81,9 @@ async def test_put_round_trips_owner_person_id(profiles: DynamoDBProfileReposito
 
 
 async def test_put_replaces_existing_profile(profiles: DynamoDBProfileRepository) -> None:
-    await profiles.put(_profile(owner_person_id=str(ULID())))
+    await profiles.put(_profile())
     replacement = _profile(
-        traditions=frozenset({Tradition.BUKVITSA}),
-        answer_depth=AnswerDepth.TECHNICAL,
-        updated_at=UPDATED,
+        tradition=Tradition.BUKVITSA, answer_depth=AnswerDepth.TECHNICAL, updated_at=UPDATED
     )
 
     await profiles.put(replacement)

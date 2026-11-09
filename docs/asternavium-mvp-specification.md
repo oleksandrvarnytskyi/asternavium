@@ -157,12 +157,10 @@ The two endpoints you named stay the core. Multiple sessions, billing and notifi
 | Method, path | Auth | Purpose |
 | --- | --- | --- |
 | `GET /v1/prompts` | Public | Bubble prompts for the start screen. Query: `locale`, `module`. Static JSON, cacheable, so it is fast for anonymous visitors |
-| `POST /v1/chat` | JWT + quota | Send a message. Body: `session_id` (optional, new session if omitted), `message`, `module`, `person_id` (for a new Jyotisha session: the person whose chart it is about, from `GET /v1/persons`; defaults to the user's own person; stored on the session and fixed for its lifetime), `locale`, `answer_depth` (optional, `essentials`, `detailed` or `technical`; overrides the profile's default for this answer, which falls back to `essentials` without a profile). Returns `session_id`, `message_id`, `reply`, `references`, `usage` and remaining quota |
+| `POST /v1/chat` | JWT + quota | Send a message. Body: `session_id` (optional, new session if omitted), `message`, `module`, `locale`, `answer_depth` (optional, `essentials`, `detailed` or `technical`; overrides the profile's default for this answer, which falls back to `essentials` without a profile). Returns `session_id`, `message_id`, `reply`, `references`, `usage` and remaining quota |
 | `GET /v1/me` | JWT | User ID and profile (from Phase 1; `profile` is `null` until the first `PUT /v1/profile`); plan, entitlements and remaining quota are added in Phases 5 and 6 |
-| `DELETE /v1/me` | JWT | Delete the account and all its data (profile, persons, sessions, messages); idempotent |
-| `PUT /v1/profile` | JWT | Traditions the user is interested in (one or more, unordered), language, answer depth (default depth of answers) and, optionally, which of the user's persons is the user (`owner_person_id`) |
-| `GET` / `POST /v1/persons` | JWT | List or add the people the user makes charts for (the user, relatives, clients): a label and birth data (date, time to the minute, place ID from `GET /v1/places`); paginated |
-| `GET` / `PUT` / `DELETE /v1/persons/{id}` | JWT | Read, replace or delete one person; deleting is idempotent |
+| `DELETE /v1/me` | JWT | Delete the account and all its data (profile, sessions, messages); idempotent |
+| `PUT /v1/profile` | JWT | Birth data (date, time to the minute, place ID from `GET /v1/places`), preferred tradition, language, answer depth (default depth of answers) |
 | `GET /v1/places` | JWT | Search birthplaces by name in a GeoNames city dataset bundled with the app; returns place ID, name, region, country and time zone. The server fills in coordinates and time zone from the chosen place, so no birth place is sent to an external service |
 | `GET /v1/sessions` | JWT | List sessions (title, module, last activity), paginated |
 | `GET /v1/sessions/{id}/messages` | JWT | Paginated history of one session |
@@ -201,8 +199,8 @@ If you prefer to own the OAuth2 flow in FastAPI (`OAuth2PasswordBearer` plus sel
 | Layer | Mechanism | Example |
 | --- | --- | --- |
 | Identity | JWT `sub`, Cognito groups | `admin` group for internal endpoints |
-| Resource ownership | Check `USER#<sub>` owns the session or person on every session, message or person call | A user cannot read another user's session or person |
-| Plan entitlements | Entitlement set derived from the subscription item | `chat.daily_limit`, `persons.max`, `module.comparative`, `notifications.push` |
+| Resource ownership | Check `USER#<sub>` owns the session on every session or message call | A user cannot read another user's session |
+| Plan entitlements | Entitlement set derived from the subscription item | `chat.daily_limit`, `module.comparative`, `notifications.push` |
 | Quota | Atomic counter in DynamoDB per user per day | Free: request 11 of 10 returns `429` |
 
 Implementation: FastAPI dependencies `get_current_user()` and `require_entitlement("notifications.push")`; services never trust client-supplied user IDs. Add an API Gateway usage plan or WAF rate rule per IP as a first line of defense against abuse.
@@ -234,10 +232,9 @@ Lambda is stateless, so both memories live in DynamoDB. A session is one convers
 
 | Item | PK | SK | Key attributes |
 | --- | --- | --- | --- |
-| Profile | `USER#<id>` | `PROFILE` | email, locale, traditions (string set), answer depth, owner person ID (the person who is the account owner) |
-| Person | `USER#<id>` | `PERSON#<ulid>` | label, birth data (local date and time, place copied from the dataset, UTC instant), created, updated |
+| Profile | `USER#<id>` | `PROFILE` | email, locale, birth data, tradition, answer depth |
 | Subscription | `USER#<id>` | `SUB` | plan, status, provider customer/subscription IDs, period end |
-| Session | `USER#<id>` | `SESSION#<ulid>` | title, module, person ID (Jyotisha sessions, from Phase 2), created, updated, message count |
+| Session | `USER#<id>` | `SESSION#<ulid>` | title, module, created, updated, message count |
 | Message | `SESSION#<id>` | `MSG#<ulid>` | role, content, tokens in/out, model, trace ID |
 | Daily quota | `USER#<id>` | `QUOTA#<yyyy-mm-dd>` | count, TTL |
 | Push device | `USER#<id>` | `DEVICE#<id>` | FCM token, platform |
@@ -253,7 +250,7 @@ Notifications are asynchronous and never block a chat request: producers put a m
 | Notification | Channel | Free | Premium |
 | --- | --- | --- | --- |
 | Welcome, receipts, payment failed, security | Email | Yes (always, transactional) | Yes |
-| Weekly digest (cycles and highlights from the chart of the user's own person) | Email | Opt-in | Opt-in |
+| Weekly digest (cycles and highlights from the user's profile) | Email | Opt-in | Opt-in |
 | Daily insight | Push | No | Opt-in |
 | Significant transit or cycle alert | Push + email | No | Opt-in |
 | Reply ready for a long-running request (post-MVP) | Push | No | Yes |
@@ -279,7 +276,6 @@ A freemium model with a daily request quota and premium-only features. All numbe
 | --- | --- | --- |
 | Chat requests per day | 10 | 150 (fair use) |
 | Saved sessions, history retention | 5 sessions, 30 days | Unlimited, 12 months |
-| Persons with birth charts (the user, relatives, clients) | 3 | 50 (fair use) |
 | Modules | Jyotisha birth chart basics, Bukvitsa knowledge entries | Plus deeper Jyotisha interpretation (periods), the full Bukvitsa library, comparative explanations later |
 | Answer depth | Standard | Extended, more sources and references |
 | Notifications | Transactional email, opt-in weekly digest | Plus push, daily insight, alerts |
@@ -400,8 +396,8 @@ Nine phases. Phases 1 to 3 build the core functionality (data layer and sessions
 ### Phase 1. Data layer and sessions (local)
 
 1. Local tables: a script creates the `asternavium-local-app` table (keys and TTL as in section 7; the Stripe customer GSI follows in Phase 6) in the personal AWS account; table names come from settings, so Phase 4 only changes configuration.
-2. Repositories for profile, person, session and message; moto-based tests. The subscription and quota repositories move to Phase 6, where they are first used.
-3. Session endpoints (list, history, rename, delete) with ownership checks; `GET /v1/me`, `PUT /v1/profile` and `DELETE /v1/me` (account deletion); persons endpoints for the birth data of the user and of other people; `GET /v1/places` for birthplaces.
+2. Repositories for profile, session and message; moto-based tests. The subscription and quota repositories move to Phase 6, where they are first used.
+3. Session endpoints (list, history, rename, delete) with ownership checks; `GET /v1/me`, `PUT /v1/profile` and `DELETE /v1/me` (account deletion); `GET /v1/places` for birthplaces.
 4. Temporary `POST /v1/sessions` (module, optional title), so sessions can be created and the endpoints above tested before `POST /v1/chat` exists. It is removed in Phase 2.
 5. Temporary dev identity: `get_current_user` reads a test user from an `X-Dev-User` header when the environment is `dev`, so sessions can be built and tested before Cognito exists. It is removed in Phase 5, and a test asserts it is disabled in `prod`.
 
@@ -414,7 +410,7 @@ Nine phases. Phases 1 to 3 build the core functionality (data layer and sessions
 1. LLM factory (`init_chat_model`) with Bedrock in the personal AWS account (model access enabled in `eu-central-1`); model and limits come from settings.
 2. Jyotisha engine on Swiss Ephemeris (pyswisseph, or its community fork pysweph, which keeps the same import name): the library supplies planetary positions, sidereal modes and houses; the project adds nakshatras and dasha periods, validated with golden tests against a reference chart tool. The library is a C extension, so the Docker image in Phase 4 needs the C build tools.
 3. LangGraph agent: system prompt that enforces the platform's transparency and disclaimer rules, tools for the Jyotisha engine and the glossary, `DynamoDBSaver` checkpointer on a local `asternavium-local-checkpoints` table (added to the table script), context trimming and summary. The Bukvitsa tool is added in Phase 3.
-4. `POST /v1/chat` using the chat turn sequence from section 7 (the quota and plan checks arrive in Phase 6); `GET /v1/prompts` serving versioned bubble prompts. Remove the temporary `POST /v1/sessions` from Phase 1, so `POST /v1/chat` is the only way to create a session; tests that need a session create it through chat. A Jyotisha session stores the `person_id` it is about; deleting a person also deletes that person's sessions, because their history holds the person's chart.
+4. `POST /v1/chat` using the chat turn sequence from section 7 (the quota and plan checks arrive in Phase 6); `GET /v1/prompts` serving versioned bubble prompts. Remove the temporary `POST /v1/sessions` from Phase 1, so `POST /v1/chat` is the only way to create a session; tests that need a session create it through chat.
 5. LangSmith project, tracing, golden dataset (about 30 questions), first eval run.
 
 **Done when:** a test user holds two parallel sessions, each remembers its own context, and history survives an app restart.
@@ -456,7 +452,7 @@ Nine phases. Phases 1 to 3 build the core functionality (data layer and sessions
 1. Datadog on the EU site (`datadoghq.eu`): Lambda extension and `ddtrace` in the image, Datadog trace IDs in the JSON logs, a Terraform `observability` module with the Datadog provider and a first dashboard, and the custom metrics for tokens and estimated cost per request (section 9), so the margin per plan is visible from the first paid user.
 2. Define plans and entitlements in one config module; subscription and quota repositories; quota service with atomic counters and refunds; the Stripe customer GSI on the app table; plan, entitlements and remaining quota in `GET /v1/me`.
 3. Stripe products and prices in test mode (or the Paddle equivalent if the fallback is chosen); `checkout`, `portal` and webhook endpoints with signature check and idempotency.
-4. Enforce entitlements on chat, history length, modules and the number of persons; return `403`/`429` with clear codes.
+4. Enforce entitlements on chat, history length and modules; return `403`/`429` with clear codes.
 5. End-to-end tests with the Stripe CLI and signed fixtures, including payment failure and cancellation.
 
 **Done when:** traces and cost-per-plan metrics appear in Datadog, a test-mode upgrade raises the user's limits within 30 seconds, and cancellation lowers them at period end.
@@ -484,7 +480,7 @@ Nine phases. Phases 1 to 3 build the core functionality (data layer and sessions
 1. Western astrology and Pythagorean numerology, each as its own `domain/` package and `module` value, reusing chat, memory, quotas and notifications unchanged.
 2. Then other traditions, learning paths and comparative analysis across modules.
 
-Production web client, in parallel with the module work: React with assistant-ui and Amplify auth. Start with a basic client (login, chat, sessions, prompts, upgrade button), then the full one, including person management with a birth-place picker for Jyotisha charts backed by `GET /v1/places`.
+Production web client, in parallel with the module work: React with assistant-ui and Amplify auth. Start with a basic client (login, chat, sessions, prompts, upgrade button), then the full one, including a birth-place picker for Jyotisha profiles backed by `GET /v1/places`.
 
 ## 13. Risks and open decisions
 
@@ -515,7 +511,7 @@ Two further decisions follow from the module order:
 | LLM cost outruns subscription revenue | Quotas, token caps, cost metric per plan, cheaper model for simple turns |
 | Cold starts hurt chat latency | Container image trimmed with `uv`, lazy imports, provisioned concurrency if needed |
 | Hallucinated astrological facts | Engines compute all positions and numbers; the model only explains tool output; evals check this |
-| Sensitive personal data (birth date, time, place) | Minimal collection, encryption, deletion endpoint, no content in Datadog logs, consent text. Birth data of other people (relatives, clients) needs the user's confirmation that they may share it, a privacy policy that covers it, and deletion of each person on its own |
+| Sensitive personal data (birth date, time, place) | Minimal collection, encryption, deletion endpoint, no content in Datadog logs, consent text |
 | Health, legal or financial advice requests | System prompt policy, refusal tests in the eval set, visible disclaimer in the product |
 | Webhook loss or reordering | Idempotent handler, event table, periodic reconciliation job against Stripe |
 | Prompt injection through user input or profile fields | Treat inputs as data, restrict tools to the user's own data, scoped IAM |

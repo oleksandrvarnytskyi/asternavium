@@ -45,13 +45,6 @@ class PlaceNotFoundError(BaseAppError):
     http_status: ClassVar[HTTPStatus] = HTTPStatus.UNPROCESSABLE_CONTENT
 
 
-class PersonNotFoundError(BaseAppError):
-    """The person does not exist or belongs to another user; the two are not distinguished."""
-
-    code: ClassVar[str] = "person_not_found"
-    http_status: ClassVar[HTTPStatus] = HTTPStatus.NOT_FOUND
-
-
 class SessionNotFoundError(BaseAppError):
     """The session does not exist or belongs to another user; the two are not distinguished."""
 

@@ -4,18 +4,8 @@
 from collections.abc import Iterable
 from datetime import datetime, timedelta
 
-from app.core.errors import (
-    PersonNotFoundError,
-    SessionNotFoundError,
-    StorageUnavailableError,
-)
-from app.repositories.records import (
-    MessageRecord,
-    Page,
-    PersonRecord,
-    ProfileRecord,
-    SessionRecord,
-)
+from app.core.errors import SessionNotFoundError, StorageUnavailableError
+from app.repositories.records import MessageRecord, Page, ProfileRecord, SessionRecord
 
 
 def _page[T](records: Iterable[tuple[str, T]], *, limit: int, cursor: str | None) -> Page[T]:
@@ -52,37 +42,6 @@ class InMemoryProfileRepository:
 
     async def delete(self, user_id: str) -> None:
         self.profiles.pop(user_id, None)
-
-
-class InMemoryPersonRepository:
-    def __init__(self) -> None:
-        self.persons: dict[tuple[str, str], PersonRecord] = {}
-
-    async def create(self, person: PersonRecord) -> None:
-        key = (person.user_id, person.person_id)
-        if key in self.persons:
-            msg = "person already exists"
-            raise ValueError(msg)
-        self.persons[key] = person
-
-    async def get(self, user_id: str, person_id: str) -> PersonRecord | None:
-        return self.persons.get((user_id, person_id))
-
-    async def list_page(
-        self, user_id: str, *, limit: int, cursor: str | None
-    ) -> Page[PersonRecord]:
-        own = ((p.person_id, p) for (owner, _), p in self.persons.items() if owner == user_id)
-        return _page(own, limit=limit, cursor=cursor)
-
-    async def replace(self, person: PersonRecord) -> None:
-        key = (person.user_id, person.person_id)
-        if key not in self.persons:
-            msg = "Person not found."
-            raise PersonNotFoundError(msg)
-        self.persons[key] = person
-
-    async def delete(self, user_id: str, person_id: str) -> None:
-        self.persons.pop((user_id, person_id), None)
 
 
 class InMemorySessionRepository:

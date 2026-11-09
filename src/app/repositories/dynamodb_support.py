@@ -6,7 +6,7 @@ errors, converts attribute values, and reads one page of a query.
 """
 
 import logging
-from collections.abc import Callable
+from collections.abc import Callable, Iterable
 from datetime import UTC, datetime
 from typing import TYPE_CHECKING, Final
 
@@ -87,6 +87,18 @@ def number_value(value: int | float) -> "AttributeValueTypeDef":
     return {"N": str(value)}
 
 
+def string_set_value(values: Iterable[str]) -> "AttributeValueTypeDef":
+    """Return a string set attribute, sorted so the same set always writes the same item.
+
+    :raises ValueError: If ``values`` is empty; DynamoDB has no empty sets.
+    """
+    members = sorted(set(values))
+    if not members:
+        msg = "a string set needs at least one member"
+        raise ValueError(msg)
+    return {"SS": members}
+
+
 def timestamp_value(value: datetime) -> "AttributeValueTypeDef":
     """Return an ISO 8601 UTC string attribute, e.g. ``2026-11-05T09:30:00+00:00``.
 
@@ -107,6 +119,11 @@ def read_optional_string(item: Item, name: str) -> str | None:
     """Read a string attribute that may be absent."""
     value = item.get(name)
     return None if value is None else value["S"]
+
+
+def read_string_set(item: Item, name: str) -> frozenset[str]:
+    """Read a required string set attribute."""
+    return frozenset(item[name]["SS"])
 
 
 def read_int(item: Item, name: str) -> int:

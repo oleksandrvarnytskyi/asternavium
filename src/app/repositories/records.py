@@ -61,23 +61,43 @@ class BirthRecord:
 
 
 @dataclass(frozen=True, slots=True)
+class PersonRecord:
+    """A person the user makes charts for: the user, a relative or a client.
+
+    :ivar user_id: Owner; the person has no account of their own.
+    :ivar person_id: ULID; sorts persons by creation time.
+    :ivar label: The owner's name for the person, e.g. ``Me`` or ``Mum``.
+    :ivar birth: Birth data; every person has it (decision D9).
+    :ivar created_at: When the person was added.
+    :ivar updated_at: When the person was last replaced.
+    """
+
+    user_id: str
+    person_id: str
+    label: str
+    birth: BirthRecord
+    created_at: datetime
+    updated_at: datetime
+
+
+@dataclass(frozen=True, slots=True)
 class ProfileRecord:
-    """A user's profile.
+    """A user's preferences; birth data lives on persons.
 
     :ivar user_id: Owner.
-    :ivar birth: Birth data; every profile has it (decision D9).
     :ivar locale: BCP 47 language tag for answers, e.g. ``uk``.
-    :ivar tradition: Preferred knowledge system.
+    :ivar traditions: Knowledge systems the user is interested in; non-empty, unordered.
     :ivar answer_depth: Default depth of answers.
+    :ivar owner_person_id: The person who is the account owner, or ``None`` if not chosen.
     :ivar created_at: When the profile was first saved.
     :ivar updated_at: When the profile was last replaced.
     """
 
     user_id: str
-    birth: BirthRecord
     locale: str
-    tradition: Tradition
+    traditions: frozenset[Tradition]
     answer_depth: AnswerDepth
+    owner_person_id: str | None
     created_at: datetime
     updated_at: datetime
 

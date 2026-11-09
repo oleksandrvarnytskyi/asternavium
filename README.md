@@ -40,7 +40,9 @@ src/app/
 ├── core/          # settings, JSON logging, errors, request context
 ├── api/           # /health and versioned routers under /v1
 ├── data/          # bundled datasets (GeoNames places snapshot)
+├── domain/        # pure domain logic: birth data, profile and chat vocabulary
 ├── repositories/  # persistence and dataset access
+├── services/      # use cases: sessions, persons, profile, account deletion
 └── schemas/       # Pydantic request/response models
 tools/             # developer scripts (local tables, places snapshot)
 tests/             # mirrors src/app: api/ and unit/

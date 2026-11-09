@@ -7,6 +7,7 @@ The only module that builds keys, so every key format exists in one place:
 Item      PK                      SK
 ========  ======================  ======================
 Profile   ``USER#<user_id>``      ``PROFILE``
+Person    ``USER#<user_id>``      ``PERSON#<ulid>``
 Session   ``USER#<user_id>``      ``SESSION#<ulid>``
 Message   ``SESSION#<ulid>``      ``MSG#<ulid>``
 ========  ======================  ======================
@@ -21,6 +22,7 @@ from ulid import ULID
 from app.core.errors import InvalidCursorError
 
 USER_PREFIX: Final = "USER#"
+PERSON_PREFIX: Final = "PERSON#"
 SESSION_PREFIX: Final = "SESSION#"
 MESSAGE_PREFIX: Final = "MSG#"
 PROFILE_SORT_KEY: Final = "PROFILE"
@@ -34,6 +36,11 @@ _INVALID_CURSOR_MESSAGE: Final = "The cursor is invalid; request the first page 
 def user_key(user_id: str) -> str:
     """Return the partition key of everything a user owns."""
     return f"{USER_PREFIX}{user_id}"
+
+
+def person_key(person_id: str) -> str:
+    """Return the sort key of a person under its owner."""
+    return f"{PERSON_PREFIX}{person_id}"
 
 
 def session_key(session_id: str) -> str:

@@ -6,15 +6,15 @@ This plan breaks Phase 1 of the MVP into ordered, verifiable steps. Scope and ex
 
 ## 1. Goal and exit criterion
 
-Phase 1 gives the API persistent users, profiles and chat sessions, so that Phase 2 can attach the agent to them.
+Phase 1 gives the API persistent users, profiles, persons and chat sessions, so that Phase 2 can attach the agent to them.
 
 **Done when:** sessions can be created and listed per test user, and cross-user access returns `404`.
 
 Concretely, all of the following hold:
 
-1. Through Swagger UI at `http://127.0.0.1:8000/docs`, with the dev identity set in the Authorize dialog, a test user can create, list, rename and delete sessions, read a session's message history, update their profile with `PUT /v1/profile`, and read it back with `GET /v1/me`.
-2. A second test user cannot see, rename, delete or read the messages of the first user's sessions; every such request returns `404`, so a session's existence is not revealed.
-3. Deleting the account removes the profile, all sessions and all their messages.
+1. Through Swagger UI at `http://127.0.0.1:8000/docs`, with the dev identity set in the Authorize dialog, a test user can create, list, rename and delete sessions, read a session's message history, add, list, replace and delete persons with their birth data, update their profile with `PUT /v1/profile`, and read it back with `GET /v1/me`.
+2. A second test user cannot see, rename, delete or read the messages of the first user's sessions, or see, replace or delete the first user's persons; every such request returns `404` (`204` for a delete, which changes nothing), so their existence is not revealed.
+3. Deleting the account removes the profile, all persons, all sessions and all their messages.
 4. The running app stores its data in the `asternavium-local-app` table in the personal AWS account (`eu-central-1`), created by a script in the repository.
 5. `make check` passes without AWS credentials or network: DynamoDB code is tested against moto.
 6. Without `ASTERNAVIUM_ENVIRONMENT=dev`, the dev identity is rejected, and a test proves it.
@@ -41,10 +41,11 @@ The specification fixes the data model (section 7), the endpoints (section 5) an
 | D4 | Repositories built now | Profile, session and message only (decided) | The specification also lists subscription and quota repositories for this phase; nothing uses them before Phase 6, so building them now is speculative (CLAUDE.md: no unused abstractions) |
 | D5 | Stripe customer GSI | Add in Phase 6 (decided) | DynamoDB adds a GSI to an existing table without downtime or migration; nothing queries it before Phase 6 |
 | D6 | Async access to DynamoDB | `boto3` behind async repository methods, run in a worker thread (`anyio.to_thread`) (decided) | CLAUDE.md requires async I/O that never blocks the event loop. `aioboto3` is async-native, but moto's in-process mock and `langgraph-checkpoint-aws` (Phase 2) are built on `boto3`; the checkpointer's async methods run its synchronous `boto3` calls in a thread pool, the same pattern chosen here. One client library keeps tests and the checkpointer simple |
-| D7 | Birth place input | The user gives only a place name. `GET /v1/places` searches a GeoNames city dataset bundled with the app (places with at least 500 inhabitants, each with coordinates and an IANA time zone); the user picks one result, and `PUT /v1/profile` stores its place ID. The server fills in coordinates and time zone (decided) | The user is never asked for coordinates or a time zone, and nothing is guessed for ambiguous names (Paris, France and Paris, Texas). The lookup runs offline, so birthplaces never leave the system, and results are deterministic and testable. Very small villages are missing; the user picks the nearest town, a few kilometres off. GeoNames data is CC-BY 4.0, attributed in `NOTICE` |
+| D7 | Birth place input | The user gives only a place name. `GET /v1/places` searches a GeoNames city dataset bundled with the app (places with at least 500 inhabitants, each with coordinates and an IANA time zone); the user picks one result, and `POST /v1/persons` stores its place ID. The server fills in coordinates and time zone (decided) | The user is never asked for coordinates or a time zone, and nothing is guessed for ambiguous names (Paris, France and Paris, Texas). The lookup runs offline, so birthplaces never leave the system, and results are deterministic and testable. Very small villages are missing; the user picks the nearest town, a few kilometres off. GeoNames data is CC-BY 4.0, attributed in `NOTICE` |
 | D8 | Ambiguous and nonexistent local times (DST changes) | Reject nonexistent times; for ambiguous times, require the client to choose the earlier or later instant (decided) | CLAUDE.md requires explicit handling of historical time zone and DST changes; guessing silently would shift a chart by an hour |
-| D9 | Birth data and time | Every profile requires birth data, including the birth time to the minute; `PUT /v1/profile` without them is rejected with `invalid_birth_data` (decided) | Jyotisha calculations need the exact birth time, so a profile without full birth data is of no use. Until the first successful `PUT`, `GET /v1/me` returns `profile: null` |
+| D9 | Birth data and time | Birth data lives on persons, not on the profile (decision D11). Every person requires birth data, including the birth time to the minute; a person without them is rejected with `invalid_birth_data` (decided) | Jyotisha calculations need the exact birth time, so a person without full birth data is of no use. The profile holds only preferences; until the first successful `PUT /v1/profile`, `GET /v1/me` returns `profile: null` |
 | D10 | Pagination order | Newest first, with an opaque cursor; default page size 20, maximum 50 (decided) | Matches the ULID sort keys (a plain `Query` with descending order); the client reverses a history page for display |
+| D11 | Charts for several people | A user keeps any number of persons (themselves, relatives, clients), each a separate `PERSON#<ulid>` item with a free-text label and birth data. The profile's optional `owner_person_id` marks the user's own person. No limit until Phase 6, which adds a per-plan `persons.max` entitlement; no relation category beyond the label (decided) | Separate items keep the profile small (a DynamoDB item holds at most 400 KB), let one person be edited or deleted without rewriting the others, and page like sessions. A single `owner_person_id` cannot mark two persons as the user, and a user may keep only other people's charts. A category (family, client) can be added when a plan needs it |
 
 ## 4. Data model
 
@@ -52,11 +53,12 @@ The single-table design from section 7 of the specification, limited to what Pha
 
 | Item | PK | SK | Attributes |
 | --- | --- | --- | --- |
-| Profile | `USER#<user_id>` | `PROFILE` | birth data (required), locale (BCP 47, default `en`), preferred tradition (`jyotisha`, `bukvitsa`; default `jyotisha`), answer depth (`essentials`, `detailed`, `technical`; default `essentials`), created and updated timestamps |
+| Profile | `USER#<user_id>` | `PROFILE` | locale (BCP 47, default `en`), traditions the user is interested in (a non-empty, unordered set of `jyotisha` and `bukvitsa`; default `{jyotisha}`; stored as a string set), answer depth (`essentials`, `detailed`, `technical`; default `essentials`), own person ID (optional), created and updated timestamps |
+| Person | `USER#<user_id>` | `PERSON#<ulid>` | label (1 to 50 characters), birth data (required), created and updated timestamps |
 | Session | `USER#<user_id>` | `SESSION#<ulid>` | title, module, message count, created and updated timestamps |
 | Message | `SESSION#<ulid>` | `MSG#<ulid>` | role, content, created timestamp; token counts, model and trace ID are added in Phase 2 |
 
-Birth data is stored as: the local date, the local time (to the minute), the ambiguity choice where it applied, the GeoNames place ID with its display name, region and country (so places with the same name, such as Paris in France and in Texas, stay distinguishable), latitude, longitude and IANA time zone copied from the dataset at save time, the dataset version, and the UTC instant computed from them. Copying the place values means a later dataset refresh never changes a saved profile silently. Keeping both the original local values and the UTC instant follows the CLAUDE.md time rules and lets a later change in time zone data be corrected.
+Birth data is stored on each person as: the local date, the local time (to the minute), the ambiguity choice where it applied, the GeoNames place ID with its display name, region and country (so places with the same name, such as Paris in France and in Texas, stay distinguishable), latitude, longitude and IANA time zone copied from the dataset at save time, the dataset version, and the UTC instant computed from them. Copying the place values means a later dataset refresh never changes a saved person silently. Keeping both the original local values and the UTC instant follows the CLAUDE.md time rules and lets a later change in time zone data be corrected.
 
 The table has `PK` and `SK` as string keys, on-demand capacity, and TTL on an `expires_at` attribute (unused until the quota items in Phase 6). The table definition lives in one place in the app; the local table script and the moto test fixtures both use it, and the Terraform `data` module in Phase 4 must match it.
 
@@ -73,10 +75,14 @@ All endpoints are under `/v1`, require the dev identity in this phase, and retur
 | `PATCH /v1/sessions/{id}` | Rename | Body: `title` |
 | `DELETE /v1/sessions/{id}` | Delete the session and its messages | `204`; idempotent. An ID the caller has no session with also returns `204` and changes nothing, since a repeat delete by the owner cannot be told apart from another user's ID |
 | `GET /v1/me` | Read the current user | User ID and profile; `profile` is `null` until the first `PUT`. Plan, entitlements and quota are added in Phases 5 and 6. Decision D2 |
-| `PUT /v1/profile` | Create or replace own profile | Birth date, birth time and place ID from `GET /v1/places` (all required), ambiguity choice if needed; locale, tradition, answer depth |
+| `PUT /v1/profile` | Create or replace own profile | Locale, traditions (non-empty, no duplicates), answer depth; optional `owner_person_id`, which must name one of the user's persons (`person_not_found` otherwise) |
+| `POST /v1/persons` | Add a person | Body: `label` (1 to 50 characters), birth date, birth time and place ID from `GET /v1/places` (all required), ambiguity choice if needed. Decision D11 |
+| `GET /v1/persons` | List own persons, newest first | Query: `limit`, `cursor` |
+| `GET` / `PUT /v1/persons/{id}` | Read or replace one person | `PUT` body as for `POST` |
+| `DELETE /v1/persons/{id}` | Delete a person | `204`; idempotent like a session delete. Clears `owner_person_id` if it named this person |
 | `DELETE /v1/me` | Delete the account and all its data | `204`; idempotent. Decision D3 |
 
-Ownership is enforced by the key design: a session is always read with the caller's `USER#<user_id>` partition key, so another user's session ID simply does not exist for them and returns `404` (`session_not_found`). Message history is read only after that ownership check.
+Ownership is enforced by the key design: a session is always read with the caller's `USER#<user_id>` partition key, so another user's session ID simply does not exist for them and returns `404` (`session_not_found`). Message history is read only after that ownership check. Persons follow the same rule and return `404` (`person_not_found`).
 
 ## 6. Work breakdown
 
@@ -149,23 +155,32 @@ Pure code with no I/O, in its own module.
 ### Step 8. Services
 
 1. `SessionService`: create, list, get one (raising `SessionNotFoundError` when the caller does not own it), rename, delete including all messages, and list messages after the ownership check.
-2. `ProfileService`: get the profile (or none) and replace it; resolves the place ID through `PlaceRepository`, copies its name, coordinates and time zone into the profile, and computes the UTC birth instant through the birth data module.
+2. `ProfileService`: get the profile (or none) and replace it; resolves the place ID through `PlaceRepository`, copies its name, coordinates and time zone into the profile, and computes the UTC birth instant through the birth data module. Step 9 moves this to `PersonService`.
 3. `AccountService`: delete the profile, every session and every message of one user. It is idempotent, so a retry after a partial failure finishes the job.
 4. Domain errors under `BaseAppError`, each with a code and status: `session_not_found` (`404`), `place_not_found` (`422`) and `invalid_birth_data` (`422`); `invalid_cursor` (`400`) and `storage_unavailable` (`503`) already come from step 7.
 5. Unit tests with in-memory fakes of the repository Protocols.
 
 **Done when:** service tests pass and no service imports `boto3`.
 
-### Step 9. API routers and schemas
+### Step 9. Persons
 
-1. Request and response schemas in `schemas/`: sessions, messages, pages (items plus `next_cursor`) and profile. Responses never include internal keys (`PK`, `SK`).
-2. Routers `api/v1/sessions.py`, `api/v1/profile.py` (`PUT`) and `api/v1/me.py` (`GET` and `DELETE`), with no business logic: validate, call the service, map the result. Wire the services through `Depends` from the composition root.
-3. Input limits: title length, page size, place query length, and the existing request validation that never echoes input.
-4. API tests with `TestClient` against moto: every endpoint, the cross-user `404` for each session endpoint (for `DELETE`, `204` with the other user's session left intact), pagination, account deletion, and the `401` cases.
+1. Specification and plan: decision D11, the person item, the persons endpoints, and the follow-ups in Phase 2 (a Jyotisha session stores its `person_id`) and Phase 6 (the `persons.max` entitlement).
+2. `PersonRecord` and a `PersonRepository` Protocol with a DynamoDB implementation: create, get, list page, replace an existing person, delete. The birth attributes move from the profile item to the person item; the profile keeps only preferences and `owner_person_id`.
+3. `PersonService`: create, list, get (raising `PersonNotFoundError`, `404`), replace keeping the creation time, delete (idempotent; clears `owner_person_id` when it named the deleted person) and delete all. Place lookup and the UTC birth instant move here from `ProfileService`, which now checks that `owner_person_id` names one of the user's persons. `AccountService` also deletes every person.
+4. Repository tests against moto and service tests with in-memory fakes, including another user's person ID and deleting the user's own person.
+
+**Done when:** the tests pass, a profile holds no birth data, and account deletion removes every person.
+
+### Step 10. API routers and schemas
+
+1. Request and response schemas in `schemas/`: sessions, messages, persons, pages (items plus `next_cursor`) and profile. Responses never include internal keys (`PK`, `SK`).
+2. Routers `api/v1/sessions.py`, `api/v1/persons.py`, `api/v1/profile.py` (`PUT`) and `api/v1/me.py` (`GET` and `DELETE`), with no business logic: validate, call the service, map the result. Wire the services through `Depends` from the composition root.
+3. Input limits: title and person label length, page size, place query length, and the existing request validation that never echoes input.
+4. API tests with `TestClient` against moto: every endpoint, the cross-user `404` for each session and person endpoint (for `DELETE`, `204` with the other user's item left intact), pagination, account deletion, and the `401` cases.
 
 **Done when:** the API tests pass, and the OpenAPI schema in Swagger UI shows every endpoint with its error responses.
 
-### Step 10. Local run and documentation
+### Step 11. Local run and documentation
 
 1. Run the app with `AWS_PROFILE=savar` and exercise the exit criteria in section 1 through Swagger UI with two test users.
 2. Update the README: local setup (`.env`, `AWS_PROFILE`, `make local-tables`), the dev identity, how to reset local data, and how to refresh the GeoNames snapshot.
@@ -173,7 +188,7 @@ Pure code with no I/O, in its own module.
 
 **Done when:** a fresh clone can follow the README to a working local API with persistent sessions.
 
-### Step 11. Phase close
+### Step 12. Phase close
 
 1. Run `make check` and the manual Swagger UI walkthrough from section 1.
 2. Record any decision changed during the phase in the specification.
@@ -192,20 +207,22 @@ Rough effort for one developer.
 | 6. Birth data model | 5 | 1 day |
 | 7. Repositories | 3 | 1.5 days |
 | 8. Services | 6, 7 | 1 day |
-| 9. API routers and schemas | 4, 8 | 1 day |
-| 10. Local run and documentation | 9 | 0.5 day |
-| 11. Phase close | all | 0.5 day |
+| 9. Persons | 8 | 1 day |
+| 10. API routers and schemas | 4, 9 | 1 day |
+| 11. Local run and documentation | 10 | 0.5 day |
+| 12. Phase close | all | 0.5 day |
 
-Total: about 9 working days.
+Total: about 10 working days.
 
 ## 8. Risks
 
 | Risk | Mitigation |
 | --- | --- |
 | A test or tool accidentally writes to the personal AWS account | Tests run inside moto's mock, which blocks real AWS calls; the table script only accepts `asternavium-local-*` names |
-| Birth data leaks into logs or error responses | Validation errors never echo input (Phase 0); domain error messages contain no values; a test asserts that responses and log output from a profile update contain none of the submitted birth data |
+| Birth data leaks into logs or error responses | Validation errors never echo input (Phase 0); domain error messages contain no values; a test asserts that responses and log output from a person create or update contain none of the submitted birth data |
 | Sync `boto3` calls block the event loop | Every repository call runs in a worker thread; a review check that no `async` function calls `boto3` directly |
 | Table definition drifts from the Terraform `data` module in Phase 4 | One table definition in the app; Phase 4, step 7 checks Terraform against it |
+| Birth data of other people is stored without their knowledge | Persons hold only what a chart needs (label, birth date, time and place); each can be deleted on its own; the consent text and privacy policy cover data about third parties before launch (specification, section 13) |
 | Account deletion stops halfway (many messages, throttling) | Batched deletes with retries of unprocessed items; the operation is idempotent, so a repeat finishes it |
 | A user's birth place is missing from the dataset | The `cities500` list covers only places with a known population of 500 or more, so most villages without a population figure are missing (in Ukraine, about 5,400 of 33,700 populated places are included). Accepted for the MVP: the user picks the nearest town, which shifts coordinates by a few kilometres and keeps the right time zone. A managed geocoding service is to be reconsidered before launch (specification, section 13) |
 | The places snapshot bloats the repository | Only the needed columns, compressed; measured in step 5 at 11.7 MB for 226,134 places, so the `cities1000` fallback is not needed |
@@ -219,3 +236,4 @@ Total: about 9 working days.
 - Cognito and real authentication (Phase 5)
 - Any Terraform, Docker image or deployment (Phase 4)
 - Street addresses, villages below 500 inhabitants and online geocoding services
+- A limit on persons per user (Phase 6, `persons.max` entitlement) and relation categories for persons (decision D11)

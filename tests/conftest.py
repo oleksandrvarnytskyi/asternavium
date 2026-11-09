@@ -15,6 +15,7 @@ from app.main import create_app
 from app.repositories.app_table import ensure_app_table
 from app.repositories.dynamodb import create_dynamodb_client
 from app.repositories.dynamodb_messages import DynamoDBMessageRepository
+from app.repositories.dynamodb_persons import DynamoDBPersonRepository
 from app.repositories.dynamodb_profiles import DynamoDBProfileRepository
 from app.repositories.dynamodb_sessions import DynamoDBSessionRepository
 from app.repositories.geonames import (
@@ -168,6 +169,12 @@ def anyio_backend() -> str:
 def profiles(dynamodb_client: DynamoDBClient, app_table: str) -> DynamoDBProfileRepository:
     """Profile repository on the moto-backed app table."""
     return DynamoDBProfileRepository(dynamodb_client, app_table)
+
+
+@pytest.fixture
+def persons(dynamodb_client: DynamoDBClient, app_table: str) -> DynamoDBPersonRepository:
+    """Person repository on the moto-backed app table."""
+    return DynamoDBPersonRepository(dynamodb_client, app_table)
 
 
 @pytest.fixture

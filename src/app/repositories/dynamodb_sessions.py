@@ -103,7 +103,7 @@ class DynamoDBSessionRepository:
             lambda: self._client.get_item(TableName=self._table_name, Key=key, ConsistentRead=True),
         )
         item = response.get("Item")
-        return None if item is None else _from_item(item)
+        return _from_item(item) if item else None
 
     async def list_page(
         self, user_id: str, *, limit: int, cursor: str | None

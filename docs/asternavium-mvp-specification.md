@@ -82,6 +82,7 @@ Your proposed stack holds up. The main additions are Amazon Cognito for OAuth2/J
 - **Cognito instead of a hand-built OAuth2 server.** It already issues and rotates JWTs, handles social login, password reset and MFA. FastAPI only validates tokens via the JWKS endpoint. Building your own OAuth2 provider is the main security risk to avoid in an MVP.
 - **LangGraph over plain LangChain chains.** You need stateful sessions, tool calls to calculation engines, and resumable threads. LangGraph checkpoints give per-session short-term memory out of the box.
 - **Lambda container image.** LangChain, boto3 and an ephemeris library easily exceed 250 MB unzipped. Add provisioned concurrency only if cold starts hurt.
+- **DynamoDB through `boto3` in a worker thread.** Repository methods are `async` and run their synchronous `boto3` calls with `anyio.to_thread`, so the event loop never blocks. `aioboto3` was not chosen: moto's in-process mock and `langgraph-checkpoint-aws` are built on `boto3`, and the checkpointer uses the same thread pattern (decided in Phase 1).
 - **DynamoDB for both memories.** AWS documents a `DynamoDBSaver` in `langgraph-checkpoint-aws` with TTL, compression and optional S3 offload for large checkpoints; no Redis or VPC is needed in the MVP.
 - **Ephemeris licensing.** Swiss Ephemeris (`pyswisseph`) is dual-licensed AGPL or paid professional. A closed-source SaaS needs the professional license, or an alternative such as JPL data via Skyfield. Use Swiss Ephemeris under its free AGPL licence. The project must then be published under the AGPL-3.0 or a compatible licence, with the AGPL-3.0 licence text in the repository and a way for users of the service to get the source; section 14 lists the required steps. The choice must be made before the public service goes live. Record the Jyotisha settings (ayanamsa, house system, dasha variant) as documented module assumptions.
 
@@ -166,13 +167,25 @@ The two endpoints you named stay the core. Multiple sessions, billing and notifi
 | `GET /v1/places` | JWT | Search birthplaces by name in a GeoNames city dataset bundled with the app; returns place ID, name, region, country and time zone. The server fills in coordinates and time zone from the chosen place, so no birth place is sent to an external service |
 | `GET /v1/sessions` | JWT | List sessions (title, module, last activity), paginated |
 | `GET /v1/sessions/{id}/messages` | JWT | Paginated history of one session |
-| `PATCH` / `DELETE /v1/sessions/{id}` | JWT | Rename or delete a session |
+| `PATCH` / `DELETE /v1/sessions/{id}` | JWT | Rename or delete a session (with its messages); deleting is idempotent |
 | `POST /v1/billing/checkout` | JWT | Create Stripe Checkout session for a plan |
 | `POST /v1/billing/portal` | JWT | Link to Stripe Customer Portal (cancel, card, invoices) |
 | `POST /v1/webhooks/stripe` | Stripe signature | Subscription lifecycle events |
 | `PUT /v1/notifications/preferences` | JWT | Email and push opt-ins by type |
 | `POST` / `DELETE /v1/notifications/devices` | JWT | Register or remove a push token |
 | `GET /health` | Public | Liveness for monitors |
+
+### Conventions of the resource endpoints
+
+Settled in Phase 1 and shared by sessions, messages, persons and the profile:
+
+- **Pagination.** Lists are newest first with an opaque `cursor`; the response holds `items` and `next_cursor` (`null` on the last page). `limit` defaults to 20, at most 50. A cursor the API did not issue for that list returns `400 invalid_cursor`.
+- **Ownership.** Another user's session or person is reported exactly like a missing one: `404 session_not_found` or `404 person_not_found`. A delete returns `204` either way and changes nothing for an ID the caller does not own, since a repeated delete by the owner cannot be told apart from another user's ID.
+- **IDs.** Session and person IDs are ULIDs issued by the API; a malformed ID returns `422` before any database call.
+- **Input limits.** Session title 1 to 100 characters and person label 1 to 50 characters, both after trimming; place search query 2 to 100 characters. Validation errors list field locations and reasons, never the submitted values.
+- **Birth data.** Date and local time to the minute, as ISO text (a number is rejected), plus a place ID from `GET /v1/places` (`422 place_not_found` otherwise). A local time skipped by a clock change is rejected; a time that occurred twice needs `ambiguous_time` (`earlier` or `later`); either problem, or a birth in the future, returns `422 invalid_birth_data`. Responses return the time as `HH:MM`, the saved place without coordinates, and the UTC instant.
+- **Profile.** `PUT /v1/profile` replaces the whole profile; omitted fields take their defaults (`en`, `[jyotisha]`, `simple`, no owner person). Traditions must not repeat. `GET /v1/me` reports an `owner_person_id` whose person no longer exists as `null`.
+- **Errors.** Every error uses the shared model; `503 storage_unavailable` means the database failed after retries and the request may be repeated.
 
 ### Chat contract details
 
@@ -405,7 +418,9 @@ Nine phases. Phases 1 to 3 build the core functionality (data layer and sessions
 4. Temporary `POST /v1/sessions` (module, optional title), so sessions can be created and the endpoints above tested before `POST /v1/chat` exists. It is removed in Phase 2.
 5. Temporary dev identity: `get_current_user` reads a test user from an `X-Dev-User` header when the environment is `dev`, so sessions can be built and tested before Cognito exists. It is removed in Phase 5, and a test asserts it is disabled in `prod`.
 
-**Done when:** sessions can be created and listed per test user, and cross-user access returns `404`, so a session's existence is not revealed.
+**Done when:** sessions can be created and listed per test user, and cross-user access returns `404` (`204` for a delete, which changes nothing), so a session's existence is not revealed.
+
+**Status:** done on Nov 11, 2026. The exit criteria were checked against the `asternavium-local-app` table with two test users, through HTTP calls and in Swagger UI. The detailed steps and decisions are in `phase-1-implementation-plan.md`.
 
 **Web client from this phase:** Swagger UI (`/docs`), enabled in `dev` and disabled in `prod`. It uses the dev identity until Phase 5 adds the Cognito Authorize button.
 

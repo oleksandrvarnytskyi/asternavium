@@ -56,5 +56,5 @@ class Settings(BaseSettings):
     )
     app_table_name: str = Field(
         pattern=_DYNAMODB_TABLE_NAME_PATTERN,
-        description="Name of the DynamoDB table holding profiles, sessions and messages.",
+        description="Name of the DynamoDB table holding profiles, persons, sessions and messages.",
     )

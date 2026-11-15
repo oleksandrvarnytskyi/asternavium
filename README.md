@@ -3,7 +3,7 @@
 Modular platform for astrology, numerology and traditional knowledge systems: deterministic
 calculation engines, a structured knowledge base and an AI interpretation layer.
 
-The MVP is an API-first AI chat over Jyotisha and the Slavic symbolic traditions (Bukvitsa).
+The MVP is an API-first, free AI chat over Jyotisha (Vedic astrology), with daily and monthly request limits.
 See [docs/asternavium-mvp-concise-plan.md](docs/asternavium-mvp-concise-plan.md) and the
 [detailed specification](docs/asternavium-mvp-specification.md).
 
@@ -14,8 +14,8 @@ See [docs/asternavium-mvp-concise-plan.md](docs/asternavium-mvp-concise-plan.md)
 
 ## Getting started
 
-Until Phase 4 the API runs on your machine and keeps its data in a DynamoDB table in your own
-AWS account (`eu-central-1` by default). Tests never call AWS: they run against moto.
+For now the API runs on your machine and keeps its data in a DynamoDB table in your own AWS
+account (`eu-central-1` by default). Tests never call AWS: they run against moto.
 
 ```sh
 make install                  # uv sync + pre-commit hooks
@@ -31,8 +31,8 @@ costs at most a few cents.
 
 ### Dev identity
 
-Until real login arrives in Phase 5, the caller is whoever the `X-Dev-User` header names: any
-user ID of 1 to 64 letters, digits, `-` and `_`. The header is accepted only when
+Until real login is added, the caller is whoever the `X-Dev-User` header names: any user ID
+of 1 to 64 letters, digits, `-` and `_`. The header is accepted only when
 `ASTERNAVIUM_ENVIRONMENT=dev`. In Swagger UI, click **Authorize** and enter a user ID such as
 `alice`; authorize as `bob` to check that Alice's data is invisible to him.
 

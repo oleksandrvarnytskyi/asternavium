@@ -27,7 +27,7 @@ Project structure is still taking shape; keep these principles until it is defin
 - Do not assume similarity between traditions implies shared origin.
 - Time: store and compute in UTC with timezone-aware `datetime`; keep the original local time, tz name and location alongside. Use `zoneinfo`. Handle historical timezone/DST changes explicitly. Never use naive datetimes.
 - Birth data (date, time, place, name) is personal data: do not log it, do not put it in error messages or telemetry, and exclude it from test fixtures that use real people. Use synthetic or public-figure-free fixtures.
-- Check the license of any ephemeris/calculation library (e.g. Swiss Ephemeris is AGPL/commercial) before adding or bundling it. Ask if unclear.
+- Check the license of any dependency, ephemeris or data file before adding or bundling it: the application is proprietary, so copyleft licences (GPL, AGPL) are not allowed. Ask if unclear.
 
 ## Python style
 

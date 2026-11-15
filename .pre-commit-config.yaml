@@ -18,9 +18,3 @@ repos:
         language: system
         types: [python]
         pass_filenames: false
-      - id: spdx-header
-        name: SPDX licence header
-        entry: "SPDX-License-Identifier: AGPL-3.0-or-later"
-        language: pygrep
-        args: [--negate]
-        types: [python]

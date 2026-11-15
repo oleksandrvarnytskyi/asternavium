@@ -1,4 +1,3 @@
-# SPDX-License-Identifier: AGPL-3.0-or-later
 # All birth data here is synthetic; none of it belongs to a real person.
 import json
 from datetime import date, time

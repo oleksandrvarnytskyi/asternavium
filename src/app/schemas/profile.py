@@ -1,4 +1,3 @@
-# SPDX-License-Identifier: AGPL-3.0-or-later
 """Models for the profile and the current user."""
 
 from typing import Self

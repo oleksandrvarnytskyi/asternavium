@@ -1,4 +1,3 @@
-# SPDX-License-Identifier: AGPL-3.0-or-later
 """The persons the caller makes charts for: themselves, relatives or clients."""
 
 from http import HTTPStatus

@@ -19,7 +19,7 @@ account (`eu-central-1` by default). Tests never call AWS: they run against moto
 
 ```sh
 make install                  # uv sync + pre-commit hooks
-cp .env.example .env          # then set ASTERNAVIUM_SOURCE_URL
+cp .env.example .env
 export AWS_PROFILE=<profile>  # an AWS profile with DynamoDB access in the region
 make local-tables             # create the asternavium-local-app table; safe to repeat
 make run                      # http://127.0.0.1:8000/docs
@@ -87,10 +87,9 @@ tests/             # mirrors src/app: api/ and unit/
 
 ## Licence
 
-AsterNavium is free software under the [GNU AGPL-3.0-or-later](LICENSE); third-party notices
-are in [NOTICE](NOTICE). If you run a modified version as a network service, you must offer
-its source code to its users. The running service publishes its source URL at
-`GET /v1/about`.
+AsterNavium is proprietary software; all rights reserved (see [LICENSE](LICENSE)).
+Third-party notices and data credits are in [NOTICE](NOTICE), and the running service lists
+its data credits at `GET /v1/about`.
 
 Birth place search uses data from [GeoNames](https://www.geonames.org/), licensed under
 [CC BY 4.0](https://creativecommons.org/licenses/by/4.0/). The bundled snapshot in

@@ -1,12 +1,7 @@
 AsterNavium
-Copyright (C) 2026 AsterNavium contributors
+Copyright (c) 2026 Oleksandr Varnytskyi. All rights reserved. See the LICENSE file.
 
-This program is free software: you can redistribute it and/or modify it under the terms of
-the GNU Affero General Public License as published by the Free Software Foundation, either
-version 3 of the License, or (at your option) any later version. See the LICENSE file.
-
-If you run a modified version of this program as a network service, the AGPL-3.0 requires
-you to offer its users the corresponding source code (see GET /v1/about).
+This file lists the third-party components and data the program uses, with their licences.
 
 -------------------------------------------------------------------------------
 Third-party components (runtime dependencies)

@@ -1,4 +1,3 @@
-# SPDX-License-Identifier: AGPL-3.0-or-later
 """A user's profile: preferences and the link to the person who is the account owner."""
 
 import dataclasses

@@ -1,4 +1,3 @@
-# SPDX-License-Identifier: AGPL-3.0-or-later
 """Birthplace search over the bundled GeoNames dataset."""
 
 from http import HTTPStatus

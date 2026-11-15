@@ -1,4 +1,3 @@
-# SPDX-License-Identifier: AGPL-3.0-or-later
 """Deletion of a whole account."""
 
 from app.services.persons import PersonService

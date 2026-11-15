@@ -1,4 +1,3 @@
-# SPDX-License-Identifier: AGPL-3.0-or-later
 """Records returned by the repositories; internal types, not API schemas.
 
 Every timestamp is a timezone-aware UTC ``datetime``.

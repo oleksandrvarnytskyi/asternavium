@@ -1,4 +1,3 @@
-# SPDX-License-Identifier: AGPL-3.0-or-later
 from app.core.config import Settings
 from app.repositories.dynamodb import (
     CONNECT_TIMEOUT_SECONDS,

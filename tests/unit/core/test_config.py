@@ -1,4 +1,3 @@
-# SPDX-License-Identifier: AGPL-3.0-or-later
 from typing import Any
 
 import pytest
@@ -7,7 +6,6 @@ from pydantic import ValidationError
 from app.core.config import DEFAULT_AWS_REGION, Settings
 
 _REQUIRED: dict[str, Any] = {
-    "source_url": "https://example.org/asternavium",
     "app_table_name": "asternavium-test-table",
 }
 
@@ -22,7 +20,7 @@ def test_settings_aws_region_defaults_to_frankfurt() -> None:
 
 def test_settings_app_table_name_is_required() -> None:
     with pytest.raises(ValidationError, match="app_table_name"):
-        Settings(_env_file=None, source_url=_REQUIRED["source_url"])
+        Settings(_env_file=None)
 
 
 @pytest.mark.parametrize("name", ["ab", "bad name", "bad/name", "x" * 256])

@@ -1,4 +1,3 @@
-# SPDX-License-Identifier: AGPL-3.0-or-later
 """Rebuild the bundled GeoNames places snapshot.
 
 Run ``make places-snapshot``, then commit both output files. It downloads ``cities500``, the

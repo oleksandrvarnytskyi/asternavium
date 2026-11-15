@@ -1,4 +1,3 @@
-# SPDX-License-Identifier: AGPL-3.0-or-later
 """Path and query parameters shared by several routers."""
 
 from typing import Annotated, Final

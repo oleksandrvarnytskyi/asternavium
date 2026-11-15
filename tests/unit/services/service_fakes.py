@@ -1,4 +1,3 @@
-# SPDX-License-Identifier: AGPL-3.0-or-later
 """In-memory fakes of the repository Protocols and a settable clock for service tests."""
 
 from collections.abc import Iterable

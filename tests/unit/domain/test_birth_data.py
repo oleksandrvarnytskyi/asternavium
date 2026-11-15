@@ -1,4 +1,3 @@
-# SPDX-License-Identifier: AGPL-3.0-or-later
 # All birth data here is synthetic; none of it belongs to a real person.
 from datetime import UTC, date, datetime, time, timedelta
 from http import HTTPStatus

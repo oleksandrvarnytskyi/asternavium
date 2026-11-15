@@ -1,4 +1,3 @@
-# SPDX-License-Identifier: AGPL-3.0-or-later
 """The caller's chat sessions and their message history."""
 
 from http import HTTPStatus

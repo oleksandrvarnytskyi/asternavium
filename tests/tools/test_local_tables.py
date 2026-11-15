@@ -1,4 +1,3 @@
-# SPDX-License-Identifier: AGPL-3.0-or-later
 from unittest.mock import create_autospec
 
 import pytest

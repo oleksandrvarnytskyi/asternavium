@@ -1,4 +1,3 @@
-# SPDX-License-Identifier: AGPL-3.0-or-later
 import pytest
 from api_helpers import ALICE, BOB, UNKNOWN_ID, create_person, save_profile
 from fastapi.testclient import TestClient

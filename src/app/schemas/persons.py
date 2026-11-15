@@ -1,4 +1,3 @@
-# SPDX-License-Identifier: AGPL-3.0-or-later
 """Models for the persons a user makes charts for."""
 
 import datetime as dt

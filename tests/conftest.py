@@ -1,4 +1,3 @@
-# SPDX-License-Identifier: AGPL-3.0-or-later
 """Shared fixtures."""
 
 from collections.abc import Callable, Iterator
@@ -8,7 +7,6 @@ from fastapi import FastAPI
 from fastapi.testclient import TestClient
 from moto import mock_aws
 from mypy_boto3_dynamodb import DynamoDBClient
-from pydantic import HttpUrl
 
 from app.core.config import Environment, Settings
 from app.main import create_app
@@ -105,7 +103,6 @@ def settings() -> Settings:
     return Settings(
         _env_file=None,
         environment=Environment.DEV,
-        source_url=HttpUrl("https://example.org/asternavium"),
         commit_sha="abc123",
         app_table_name="asternavium-test-table",
     )

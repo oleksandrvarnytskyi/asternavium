@@ -1,4 +1,3 @@
-# SPDX-License-Identifier: AGPL-3.0-or-later
 """Birthplace value type and the read-only repository interface for looking places up."""
 
 from dataclasses import dataclass

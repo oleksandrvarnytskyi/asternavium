@@ -1,4 +1,3 @@
-# SPDX-License-Identifier: AGPL-3.0-or-later
 """Create or delete the local DynamoDB app table in the developer's AWS account.
 
 Run ``make local-tables`` or ``make local-tables-delete``. The table name and region come from

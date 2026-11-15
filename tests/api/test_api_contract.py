@@ -1,4 +1,3 @@
-# SPDX-License-Identifier: AGPL-3.0-or-later
 """Rules every ``/v1`` endpoint follows: authentication and documented error responses."""
 
 from typing import Any

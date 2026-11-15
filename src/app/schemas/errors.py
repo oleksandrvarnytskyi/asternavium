@@ -1,4 +1,3 @@
-# SPDX-License-Identifier: AGPL-3.0-or-later
 """Error response model shared by all endpoints."""
 
 from pydantic import BaseModel, ConfigDict, Field

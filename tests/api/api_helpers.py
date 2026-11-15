@@ -1,4 +1,3 @@
-# SPDX-License-Identifier: AGPL-3.0-or-later
 """Requests and payloads shared by the API tests.
 
 All birth data here is synthetic; none of it belongs to a real person.

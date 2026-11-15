@@ -1,4 +1,3 @@
-# SPDX-License-Identifier: AGPL-3.0-or-later
 """Chat sessions and messages vocabulary."""
 
 from enum import StrEnum

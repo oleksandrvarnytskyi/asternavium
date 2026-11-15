@@ -1,4 +1,3 @@
-# SPDX-License-Identifier: AGPL-3.0-or-later
 """Application factory and composition root.
 
 Run locally with ``uvicorn --factory app.main:create_app``.
@@ -13,7 +12,6 @@ from app.api import health
 from app.api.v1.router import router as v1_router
 from app.core.config import Environment, Settings
 from app.core.errors import register_error_handlers
-from app.core.licensing import LICENSE_SPDX, LICENSE_URL
 from app.core.logging import configure_logging
 from app.core.request_context import RequestIdMiddleware
 from app.repositories.dynamodb import create_dynamodb_client
@@ -54,7 +52,6 @@ def create_app(
     app = FastAPI(
         title="AsterNavium API",
         version=__version__,
-        license_info={"name": LICENSE_SPDX, "url": LICENSE_URL},
         docs_url="/docs" if docs_enabled else None,
         redoc_url=None,
         openapi_url="/openapi.json" if docs_enabled else None,

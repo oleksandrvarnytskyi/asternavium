@@ -1,4 +1,3 @@
-# SPDX-License-Identifier: AGPL-3.0-or-later
 from mypy_boto3_dynamodb import DynamoDBClient
 
 from app.repositories.app_table import (

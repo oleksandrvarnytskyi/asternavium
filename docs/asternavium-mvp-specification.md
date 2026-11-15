@@ -455,7 +455,7 @@ Eight phases. Phases 1 and 2 build the core functionality (data layer and sessio
 1. Datadog monitors and dashboards as code; alerting to the on-call channel; runbooks for DLQ and usage limit incidents.
 2. Load test for the chat path; tune Lambda memory, timeouts and cold starts; decide on provisioned concurrency.
 3. Security review: IAM, WAF rules, prompt-injection tests, secrets, dependency audit.
-4. Privacy and legal: privacy policy, terms, astrology disclaimer, data deletion and export flow, LangSmith data handling, and a check of the third-party notices and data attributions (section 14).
+4. Privacy and legal: privacy policy, terms, astrology disclaimer, data deletion and export flow, LangSmith data handling, a check of the third-party notices and data attributions, and a real person or company named as the copyright holder in `LICENSE` and `NOTICE` instead of "AsterNavium contributors" (section 14).
 5. Set up `prod`: create the `prod` AWS account (state, OIDC role), apply the `prod` Terraform environment (API, data, Cognito pool, notifications), create the release pipeline with manual approval and gradual alias shift, and configure the production services (SES production access requested at the start of this phase, Datadog and LangSmith `prod` settings). Promote the same image that passed testing in `dev` and run the smoke test.
 
 **Done when:** the success criteria in section 1 are met in `prod`.
@@ -524,7 +524,7 @@ AsterNavium is proprietary software (all rights reserved). It was published unde
 
 ### In the repository
 
-- **`LICENSE`** at the root of `asternavium`: a proprietary notice naming the copyright holder, all rights reserved.
+- **`LICENSE`** at the root of `asternavium`: a proprietary notice, all rights reserved. It names "AsterNavium contributors" as the copyright holder for now; before launch (Phase 7), name a real person or company in `LICENSE` and `NOTICE`, because only an identifiable holder can grant permission and enforce the rights.
 - **Licence metadata:** the `license` field in `pyproject.toml` marks the package as proprietary. The per-file `SPDX-License-Identifier` headers and their pre-commit check are removed; `LICENSE` covers every file.
 - **`NOTICE`** lists the third-party packages with their licences (MIT, BSD and Apache-2.0 require keeping their copyright notices in anything distributed, including the container image) and the data attributions: GeoNames places data (CC-BY 4.0), NASA JPL DE421 ephemeris (public domain, credited) and the Hipparcos catalogue (ESA, credited).
 - **Repository visibility:** private. Versions published earlier under the AGPL-3.0 stay under that licence for anyone who obtained them; later versions do not.

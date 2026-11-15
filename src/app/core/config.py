@@ -1,10 +1,9 @@
-# SPDX-License-Identifier: AGPL-3.0-or-later
 """Application settings loaded from environment variables."""
 
 from enum import StrEnum
 from typing import Final
 
-from pydantic import Field, HttpUrl
+from pydantic import Field
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 DEFAULT_AWS_REGION: Final = "eu-central-1"
@@ -41,9 +40,6 @@ class Settings(BaseSettings):
 
     environment: Environment = Field(default=Environment.DEV, description="Deployment environment.")
     log_level: LogLevel = Field(default=LogLevel.INFO, description="Root log level.")
-    source_url: HttpUrl = Field(
-        description="Public URL of this service's source code, required by the AGPL-3.0."
-    )
     commit_sha: str | None = Field(
         default=None,
         max_length=40,

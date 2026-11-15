@@ -1,4 +1,3 @@
-# SPDX-License-Identifier: AGPL-3.0-or-later
 """Definition of the app's single DynamoDB table.
 
 This module is the one source of the table's keys, billing mode and TTL: the local table script

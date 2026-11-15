@@ -1,4 +1,3 @@
-# SPDX-License-Identifier: AGPL-3.0-or-later
 """Persons and their birth data in the DynamoDB app table."""
 
 from datetime import date, time

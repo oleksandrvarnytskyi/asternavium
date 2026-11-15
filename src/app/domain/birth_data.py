@@ -1,4 +1,3 @@
-# SPDX-License-Identifier: AGPL-3.0-or-later
 """Birth data value type and conversion of the local birth moment to UTC.
 
 Birth data is personal data: nothing here logs it, and error messages never contain it.

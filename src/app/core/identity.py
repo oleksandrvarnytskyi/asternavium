@@ -1,4 +1,3 @@
-# SPDX-License-Identifier: AGPL-3.0-or-later
 """Identity of the caller an API request acts for."""
 
 from dataclasses import dataclass

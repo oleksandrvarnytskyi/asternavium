@@ -35,7 +35,7 @@ The AsterNavium MVP ships as an API-first, free AI chat over one module, Jyotish
 
 **Licence:** proprietary, all rights reserved. `NOTICE` keeps the third-party licence notices and data attributions (GeoNames, NASA JPL, Hipparcos), and every new dependency must have a permissive licence. Details are in section 14 of the detailed specification.
 
-**Bukvitsa service (after the MVP):** the Slavic symbolic traditions will run as a separate service, Bukvitsa, in its own repository (`asternavium-bukvitsa`): a read-only API over curated, sourced entries that the main API calls as an agent tool. Its content and licence stay independent of the AGPL application, subject to legal confirmation. It is planned for after the MVP; its design is kept in section 3 of the detailed specification.
+**Bukvitsa service (after the MVP):** the Slavic symbolic traditions will run as a separate service, Bukvitsa, in its own repository (`asternavium-bukvitsa`): a read-only API over curated, sourced entries that the main API calls as an agent tool. Its content and licence stay independent of the main application, subject to legal confirmation. It is planned for after the MVP; its design is kept in section 3 of the detailed specification.
 
 ## 3. Phases and exit criteria
 
@@ -50,7 +50,7 @@ Build order: core functionality first (data layer and sessions, then chat with t
 | 4. Authentication | Cognito, JWT validation, `GET /v1/me`, dev identity removed | Sign-up through hosted UI returns a profile |
 | 5. Observability and usage limits | Datadog (EU site: Lambda extension, APM tracing, first dashboard, cost-per-request metrics), daily and monthly request limits, `Idempotency-Key` | Traces visible in Datadog; request 9 of a day and 31 of a month return `429` |
 | 6. Notifications | SQS, EventBridge, SES, preferences, 30 emails per user per month | A user gets the welcome email and opted-in digests; email 31 of a month is not sent |
-| 7. Hardening and launch | Monitors, load test, security review, legal texts, prod setup (account, Terraform environment, release pipeline, production services) and promotion of the tested image to `prod` | Success criteria met in `prod` |
+| 7. Hardening and launch | Monitors, load test, security review, legal texts, a real person or company as the copyright holder in `LICENSE` and `NOTICE`, prod setup (account, Terraform environment, release pipeline, production services) and promotion of the tested image to `prod` | Success criteria met in `prod` |
 
 ## 4. Decisions needed before starting
 

@@ -1,4 +1,3 @@
-# SPDX-License-Identifier: AGPL-3.0-or-later
 """Repository interfaces for the app table; services depend on these, not on DynamoDB.
 
 Every method may raise :class:`~app.core.errors.StorageUnavailableError` when the database

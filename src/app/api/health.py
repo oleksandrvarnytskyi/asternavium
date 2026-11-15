@@ -1,4 +1,3 @@
-# SPDX-License-Identifier: AGPL-3.0-or-later
 """Unversioned liveness endpoint for load balancers and monitors."""
 
 from fastapi import APIRouter

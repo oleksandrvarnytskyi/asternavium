@@ -1,4 +1,3 @@
-# SPDX-License-Identifier: AGPL-3.0-or-later
 """Source of the current instant, injected so services stay deterministic under test."""
 
 from collections.abc import Callable

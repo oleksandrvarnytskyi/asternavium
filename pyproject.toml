@@ -3,7 +3,7 @@ name = "asternavium"
 version = "0.1.0"
 description = "Modular platform for astrology, numerology and traditional knowledge systems."
 readme = "README.md"
-license = "AGPL-3.0-or-later"
+license = "LicenseRef-Proprietary"
 license-files = ["LICENSE", "NOTICE"]
 requires-python = ">=3.13,<3.14"
 dependencies = [

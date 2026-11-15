@@ -1,4 +1,3 @@
-# SPDX-License-Identifier: AGPL-3.0-or-later
 """OpenAPI descriptions of the error responses an endpoint can return."""
 
 from http import HTTPStatus

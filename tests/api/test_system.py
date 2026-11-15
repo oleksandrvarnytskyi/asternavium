@@ -1,4 +1,3 @@
-# SPDX-License-Identifier: AGPL-3.0-or-later
 from collections.abc import Callable
 
 import pytest
@@ -20,16 +19,26 @@ def test_health_returns_ok(client: TestClient) -> None:
     assert response.json() == {"status": "ok"}
 
 
-def test_about_returns_build_and_source_info(client: TestClient, settings: Settings) -> None:
+def test_about_returns_build_info_and_data_credits(client: TestClient, settings: Settings) -> None:
     response = client.get("/v1/about")
 
     assert response.status_code == 200
     assert response.json() == {
         "version": __version__,
         "commit_sha": settings.commit_sha,
-        "source_url": str(settings.source_url),
-        "license": "AGPL-3.0-or-later",
+        "attributions": [
+            {
+                "name": "GeoNames",
+                "url": "https://www.geonames.org/",
+                "license": "CC-BY-4.0",
+                "license_url": "https://creativecommons.org/licenses/by/4.0/",
+            }
+        ],
     }
+
+
+def test_openapi_schema_has_no_licence_info(client: TestClient) -> None:
+    assert "license" not in client.get("/openapi.json").json()["info"]
 
 
 def test_docs_are_served_in_dev(client: TestClient) -> None:

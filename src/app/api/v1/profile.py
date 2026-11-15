@@ -1,4 +1,3 @@
-# SPDX-License-Identifier: AGPL-3.0-or-later
 """The caller's profile; read it back with GET /v1/me."""
 
 from http import HTTPStatus

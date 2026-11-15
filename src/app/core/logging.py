@@ -1,4 +1,3 @@
-# SPDX-License-Identifier: AGPL-3.0-or-later
 """Structured JSON logging carrying the current request ID.
 
 Never pass personal data (birth data, names, message text) to log calls.

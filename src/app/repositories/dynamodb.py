@@ -1,4 +1,3 @@
-# SPDX-License-Identifier: AGPL-3.0-or-later
 """DynamoDB client construction."""
 
 from typing import TYPE_CHECKING, Final

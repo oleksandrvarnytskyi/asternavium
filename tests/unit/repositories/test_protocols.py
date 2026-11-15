@@ -1,4 +1,3 @@
-# SPDX-License-Identifier: AGPL-3.0-or-later
 from typing import TYPE_CHECKING
 
 from app.repositories.dynamodb_messages import DynamoDBMessageRepository

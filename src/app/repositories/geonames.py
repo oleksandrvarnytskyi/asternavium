@@ -1,4 +1,3 @@
-# SPDX-License-Identifier: AGPL-3.0-or-later
 """Place search over the GeoNames snapshot bundled in ``app.data.places``.
 
 The snapshot is built by ``tools/geonames_snapshot.py``: gzip-compressed, tab-separated rows in

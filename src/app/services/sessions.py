@@ -1,4 +1,3 @@
-# SPDX-License-Identifier: AGPL-3.0-or-later
 """Chat sessions of one user and their message history, with the ownership check."""
 
 from typing import Final

@@ -1,4 +1,3 @@
-# SPDX-License-Identifier: AGPL-3.0-or-later
 import anyio
 from api_helpers import ALICE, BOB, create_person, create_session, save_profile
 from fastapi.testclient import TestClient

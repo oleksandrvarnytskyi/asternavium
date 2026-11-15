@@ -1,4 +1,3 @@
-# SPDX-License-Identifier: AGPL-3.0-or-later
 """Domain exception root and the HTTP handlers that render the shared error model."""
 
 import logging

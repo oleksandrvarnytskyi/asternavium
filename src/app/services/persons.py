@@ -1,4 +1,3 @@
-# SPDX-License-Identifier: AGPL-3.0-or-later
 """Persons a user makes charts for, with their birth data resolved against the place data.
 
 Birth data is personal data: nothing here logs it, and error messages never contain it.

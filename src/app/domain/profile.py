@@ -20,7 +20,7 @@ class AnswerDepth(StrEnum):
     """How deep and technical answers should be; describes the answers, never the user.
 
     It changes how results are explained, never what is calculated. The profile holds the
-    user's default; from Phase 2 a chat request may override it for one answer.
+    user's default; a chat request may override it for one answer.
     """
 
     SIMPLE = "simple"

@@ -2,8 +2,8 @@
 """Definition of the app's single DynamoDB table.
 
 This module is the one source of the table's keys, billing mode and TTL: the local table script
-and the test fixtures create the table from it, and the Terraform ``data`` module (Phase 4)
-must match it. Item key formats are built elsewhere, in the repositories' key module.
+and the test fixtures create the table from it, and the Terraform ``data`` module must
+match it. Item key formats are built elsewhere, in the repositories' key module.
 """
 
 import logging

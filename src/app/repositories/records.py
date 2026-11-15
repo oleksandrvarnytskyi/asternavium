@@ -67,7 +67,7 @@ class PersonRecord:
     :ivar user_id: Owner; the person has no account of their own.
     :ivar person_id: ULID; sorts persons by creation time.
     :ivar label: The owner's name for the person, e.g. ``Me`` or ``Mum``.
-    :ivar birth: Birth data; every person has it (decision D9).
+    :ivar birth: Birth data; every person has it.
     :ivar created_at: When the person was added.
     :ivar updated_at: When the person was last replaced.
     """
@@ -110,7 +110,7 @@ class SessionRecord:
     :ivar session_id: ULID; sorts sessions by creation time.
     :ivar title: Display title.
     :ivar module: Module the session talks to.
-    :ivar message_count: Number of messages; maintained from Phase 2.
+    :ivar message_count: Number of messages in the session.
     :ivar created_at: When the session was created.
     :ivar updated_at: When the session was last renamed or written to.
     """

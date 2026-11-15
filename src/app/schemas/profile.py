@@ -83,7 +83,7 @@ class ProfileResponse(BaseModel):
 
 
 class MeResponse(BaseModel):
-    """The current user; plan, entitlements and quota are added in Phases 5 and 6."""
+    """The current user and their profile."""
 
     model_config = ConfigDict(extra="forbid", frozen=True)
 

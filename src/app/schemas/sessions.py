@@ -16,7 +16,7 @@ SessionTitle = Annotated[
 
 
 class SessionCreateRequest(BaseModel):
-    """A new, empty session; temporary until ``POST /v1/chat`` creates sessions (decision D1)."""
+    """A new, empty session; temporary until ``POST /v1/chat`` creates sessions."""
 
     model_config = ConfigDict(extra="forbid", frozen=True)
 

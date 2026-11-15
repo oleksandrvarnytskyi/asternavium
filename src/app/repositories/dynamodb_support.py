@@ -1,8 +1,8 @@
 # SPDX-License-Identifier: AGPL-3.0-or-later
 """Plumbing shared by the DynamoDB repositories.
 
-Runs blocking ``boto3`` calls in a worker thread (decision D6), translates failures into domain
-errors, converts attribute values, and reads one page of a query.
+Runs blocking ``boto3`` calls in a worker thread, translates failures into domain errors,
+converts attribute values, and reads one page of a query.
 """
 
 import logging

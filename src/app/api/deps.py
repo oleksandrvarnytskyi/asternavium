@@ -89,7 +89,7 @@ def get_current_user(
 ) -> Principal:
     """Resolve the caller from the ``X-Dev-User`` header.
 
-    Stand-in for real authentication until Phase 5; the header is trusted only in ``dev``.
+    Stand-in for real authentication; the header is trusted only in ``dev``.
 
     :param dev_user: Raw header value, or ``None`` if absent.
     :raises UnauthenticatedError: Outside ``dev``, or if the header is missing or malformed.

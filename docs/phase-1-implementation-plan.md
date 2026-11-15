@@ -1,6 +1,6 @@
 # Phase 1 Implementation Plan: Data Layer and Sessions (Local)
 
-Oct 29, 2026 · Status: done on Nov 11, 2026
+Status: done
 
 This plan breaks Phase 1 of the MVP into ordered, verifiable steps. Scope and exit criteria come from the concise plan (`asternavium-mvp-concise-plan.md`, section 3) and the detailed specification (`asternavium-mvp-specification.md`, sections 4 to 7 and 12). Phase 1 runs locally: the app uses a personal AWS account only for its DynamoDB table, and tests never call AWS. Chat, the LLM and the checkpoints table arrive in Phase 2.
 
@@ -35,17 +35,17 @@ The specification fixes the data model (section 7), the endpoints (section 5) an
 
 | # | Decision | Choice | Why |
 | --- | --- | --- | --- |
-| D1 | How sessions are created in Phase 1 | Add a temporary `POST /v1/sessions` (module, optional title), removed in Phase 2 once `POST /v1/chat` creates sessions (decided) | The specification creates sessions only implicitly in `POST /v1/chat`, which exists from Phase 2, so without this endpoint nothing in the API can create a session to list, rename or delete, and the exit criterion cannot be shown in Swagger UI. It is a thin wrapper over `SessionService.create`, which Phase 2 reuses. Removing it in Phase 2 leaves one creation path and avoids empty sessions using up the Free plan's session limit. No client depends on it, and the removal is listed in Phase 2 of the specification |
-| D2 | Reading the profile | Introduce `GET /v1/me` now, returning the user ID and profile; plan, entitlements and quota fields are added in Phases 5 and 6 (decided) | One endpoint instead of two with overlapping data, and no endpoint beyond the specification. Adding fields later does not break clients. `profile` is `null` until the first `PUT /v1/profile`, because the user exists without a profile |
-| D3 | Account deletion endpoint | `DELETE /v1/me` (decided) | Section 7 requires account deletion, but section 5 names no endpoint. `/v1/me` is the account resource in the specification |
-| D4 | Repositories built now | Profile, person (added with decision D11), session and message only (decided) | The specification also lists subscription and quota repositories for this phase; nothing uses them before Phase 6, so building them now is speculative (CLAUDE.md: no unused abstractions) |
-| D5 | Stripe customer GSI | Add in Phase 6 (decided) | DynamoDB adds a GSI to an existing table without downtime or migration; nothing queries it before Phase 6 |
-| D6 | Async access to DynamoDB | `boto3` behind async repository methods, run in a worker thread (`anyio.to_thread`) (decided) | CLAUDE.md requires async I/O that never blocks the event loop. `aioboto3` is async-native, but moto's in-process mock and `langgraph-checkpoint-aws` (Phase 2) are built on `boto3`; the checkpointer's async methods run its synchronous `boto3` calls in a thread pool, the same pattern chosen here. One client library keeps tests and the checkpointer simple |
-| D7 | Birth place input | The user gives only a place name. `GET /v1/places` searches a GeoNames city dataset bundled with the app (places with at least 500 inhabitants, each with coordinates and an IANA time zone); the user picks one result, and `POST /v1/persons` stores its place ID. The server fills in coordinates and time zone (decided) | The user is never asked for coordinates or a time zone, and nothing is guessed for ambiguous names (Paris, France and Paris, Texas). The lookup runs offline, so birthplaces never leave the system, and results are deterministic and testable. Very small villages are missing; the user picks the nearest town, a few kilometres off. GeoNames data is CC-BY 4.0, attributed in `NOTICE` |
-| D8 | Ambiguous and nonexistent local times (DST changes) | Reject nonexistent times; for ambiguous times, require the client to choose the earlier or later instant (decided) | CLAUDE.md requires explicit handling of historical time zone and DST changes; guessing silently would shift a chart by an hour |
-| D9 | Birth data and time | Birth data lives on persons, not on the profile (decision D11). Every person requires birth data, including the birth time to the minute; a person without them is rejected with `invalid_birth_data` (decided) | Jyotisha calculations need the exact birth time, so a person without full birth data is of no use. The profile holds only preferences; until the first successful `PUT /v1/profile`, `GET /v1/me` returns `profile: null` |
-| D10 | Pagination order | Newest first, with an opaque cursor; default page size 20, maximum 50 (decided) | Matches the ULID sort keys (a plain `Query` with descending order); the client reverses a history page for display |
-| D11 | Charts for several people | A user keeps any number of persons (themselves, relatives, clients), each a separate `PERSON#<ulid>` item with a free-text label and birth data. The profile's optional `owner_person_id` marks the user's own person. No limit until Phase 6, which adds a per-plan `persons.max` entitlement; no relation category beyond the label (decided) | Separate items keep the profile small (a DynamoDB item holds at most 400 KB), let one person be edited or deleted without rewriting the others, and page like sessions. A single `owner_person_id` cannot mark two persons as the user, and a user may keep only other people's charts. A category (family, client) can be added when a plan needs it |
+| D1 | How sessions are created in Phase 1 | Add a temporary `POST /v1/sessions` (module, optional title), removed in Phase 2 once `POST /v1/chat` creates sessions | The specification creates sessions only implicitly in `POST /v1/chat`, which exists from Phase 2, so without this endpoint nothing in the API can create a session to list, rename or delete, and the exit criterion cannot be shown in Swagger UI. It is a thin wrapper over `SessionService.create`, which Phase 2 reuses. Removing it in Phase 2 leaves one creation path and avoids empty sessions using up the Free plan's session limit. No client depends on it, and the removal is listed in Phase 2 of the specification |
+| D2 | Reading the profile | Introduce `GET /v1/me` now, returning the user ID and profile; the remaining requests of the day and the month are added in Phase 5 | One endpoint instead of two with overlapping data, and no endpoint beyond the specification. Adding fields later does not break clients. `profile` is `null` until the first `PUT /v1/profile`, because the user exists without a profile |
+| D3 | Account deletion endpoint | `DELETE /v1/me` | Section 7 requires account deletion, but section 5 names no endpoint. `/v1/me` is the account resource in the specification |
+| D4 | Repositories built now | Profile, person (added with decision D11), session and message only | The specification also lists subscription and quota repositories for this phase; nothing uses them before Phase 5, so building them now is speculative (CLAUDE.md: no unused abstractions) |
+| D5 | Stripe customer GSI | Dropped: payments left the MVP | DynamoDB adds a GSI to an existing table without downtime or migration; nothing queries it before Phase 5 |
+| D6 | Async access to DynamoDB | `boto3` behind async repository methods, run in a worker thread (`anyio.to_thread`) | CLAUDE.md requires async I/O that never blocks the event loop. `aioboto3` is async-native, but moto's in-process mock and `langgraph-checkpoint-aws` (Phase 2) are built on `boto3`; the checkpointer's async methods run its synchronous `boto3` calls in a thread pool, the same pattern chosen here. One client library keeps tests and the checkpointer simple |
+| D7 | Birth place input | The user gives only a place name. `GET /v1/places` searches a GeoNames city dataset bundled with the app (places with at least 500 inhabitants, each with coordinates and an IANA time zone); the user picks one result, and `POST /v1/persons` stores its place ID. The server fills in coordinates and time zone | The user is never asked for coordinates or a time zone, and nothing is guessed for ambiguous names (Paris, France and Paris, Texas). The lookup runs offline, so birthplaces never leave the system, and results are deterministic and testable. Very small villages are missing; the user picks the nearest town, a few kilometres off. GeoNames data is CC-BY 4.0, attributed in `NOTICE` |
+| D8 | Ambiguous and nonexistent local times (DST changes) | Reject nonexistent times; for ambiguous times, require the client to choose the earlier or later instant | CLAUDE.md requires explicit handling of historical time zone and DST changes; guessing silently would shift a chart by an hour |
+| D9 | Birth data and time | Birth data lives on persons, not on the profile (decision D11). Every person requires birth data, including the birth time to the minute; a person without them is rejected with `invalid_birth_data` | Jyotisha calculations need the exact birth time, so a person without full birth data is of no use. The profile holds only preferences; until the first successful `PUT /v1/profile`, `GET /v1/me` returns `profile: null` |
+| D10 | Pagination order | Newest first, with an opaque cursor; default page size 20, maximum 50 | Matches the ULID sort keys (a plain `Query` with descending order); the client reverses a history page for display |
+| D11 | Charts for several people | A user keeps any number of persons (themselves, relatives, clients), each a separate `PERSON#<ulid>` item with a free-text label and birth data. The profile's optional `owner_person_id` marks the user's own person. No limit until Phase 5, which adds a fixed limit per user from settings; no relation category beyond the label | Separate items keep the profile small (a DynamoDB item holds at most 400 KB), let one person be edited or deleted without rewriting the others, and page like sessions. A single `owner_person_id` cannot mark two persons as the user, and a user may keep only other people's charts. A category (family, client) can be added when a plan needs it |
 
 ## 4. Data model
 
@@ -60,7 +60,7 @@ The single-table design from section 7 of the specification, limited to what Pha
 
 Birth data is stored on each person as: the local date, the local time (to the minute), the ambiguity choice where it applied, the GeoNames place ID with its display name, region and country (so places with the same name, such as Paris in France and in Texas, stay distinguishable), latitude, longitude and IANA time zone copied from the dataset at save time, the dataset version, and the UTC instant computed from them. Copying the place values means a later dataset refresh never changes a saved person silently. Keeping both the original local values and the UTC instant follows the CLAUDE.md time rules and lets a later change in time zone data be corrected.
 
-The table has `PK` and `SK` as string keys, on-demand capacity, and TTL on an `expires_at` attribute (unused until the quota items in Phase 6). The table definition lives in one place in the app; the local table script and the moto test fixtures both use it, and the Terraform `data` module in Phase 4 must match it.
+The table has `PK` and `SK` as string keys, on-demand capacity, and TTL on an `expires_at` attribute (unused until the usage counters in Phase 5). The table definition lives in one place in the app; the local table script and the moto test fixtures both use it, and the Terraform `data` module in Phase 3 must match it.
 
 ## 5. API
 
@@ -74,7 +74,7 @@ All endpoints are under `/v1`, require the dev identity in this phase, and retur
 | `GET /v1/sessions/{id}/messages` | One session's history, newest first | Query: `limit`, `cursor`. Empty until Phase 2 writes messages |
 | `PATCH /v1/sessions/{id}` | Rename | Body: `title` |
 | `DELETE /v1/sessions/{id}` | Delete the session and its messages | `204`; idempotent. An ID the caller has no session with also returns `204` and changes nothing, since a repeat delete by the owner cannot be told apart from another user's ID |
-| `GET /v1/me` | Read the current user | User ID and profile; `profile` is `null` until the first `PUT`. Plan, entitlements and quota are added in Phases 5 and 6. Decision D2 |
+| `GET /v1/me` | Read the current user | User ID and profile; `profile` is `null` until the first `PUT`. The remaining requests are added in Phase 5. Decision D2 |
 | `PUT /v1/profile` | Create or replace own profile | Locale, traditions (non-empty, no duplicates), answer depth; optional `owner_person_id`, which must name one of the user's persons (`person_not_found` otherwise) |
 | `POST /v1/persons` | Add a person | Body: `label` (1 to 50 characters), birth date, birth time and place ID from `GET /v1/places` (all required), ambiguity choice if needed. Decision D11 |
 | `GET /v1/persons` | List own persons, newest first | Query: `limit`, `cursor` |
@@ -91,7 +91,7 @@ The steps run in order; within a step, items can be done in any order. Each step
 ### Step 1. Confirm decisions and update the specification
 
 1. Decisions D1 to D10 in section 3 are confirmed.
-2. Add the confirmed endpoints (`GET /v1/places`, `DELETE /v1/me`) to the API table in section 5 of the specification; list the temporary `POST /v1/sessions` in the specification's Phase 1 and its removal in Phase 2 instead, since it is not part of the final API; record the bundled GeoNames dataset for birthplaces (the specification currently leaves birth-place lookup to the production web client), note that `GET /v1/me` arrives in Phase 1 with the profile and grows in Phases 5 and 6, and note that the subscription and quota repositories and the Stripe GSI move to Phase 6.
+2. Add the confirmed endpoints (`GET /v1/places`, `DELETE /v1/me`) to the API table in section 5 of the specification; list the temporary `POST /v1/sessions` in the specification's Phase 1 and its removal in Phase 2 instead, since it is not part of the final API; record the bundled GeoNames dataset for birthplaces (the specification currently leaves birth-place lookup to the production web client), note that `GET /v1/me` arrives in Phase 1 with the profile and grows in Phases 4 and 5, and note that the subscription and quota repositories and the Stripe GSI move to Phase 5.
 
 **Done when:** the specification and this plan agree.
 
@@ -164,7 +164,7 @@ Pure code with no I/O, in its own module.
 
 ### Step 9. Persons
 
-1. Specification and plan: decision D11, the person item, the persons endpoints, and the follow-ups in Phase 2 (a Jyotisha session stores its `person_id`) and Phase 6 (the `persons.max` entitlement).
+1. Specification and plan: decision D11, the person item, the persons endpoints, and the follow-ups in Phase 2 (a Jyotisha session stores its `person_id`) and Phase 5 (a limit on persons per user).
 2. `PersonRecord` and a `PersonRepository` Protocol with a DynamoDB implementation: create, get, list page, replace an existing person, delete. The birth attributes move from the profile item to the person item; the profile keeps only preferences and `owner_person_id`.
 3. `PersonService`: create, list, get (raising `PersonNotFoundError`, `404`), replace keeping the creation time, delete (idempotent; clears `owner_person_id` when it named the deleted person) and delete all. Place lookup and the UTC birth instant move here from `ProfileService`, which now checks that `owner_person_id` names one of the user's persons. `AccountService` also deletes every person.
 4. Repository tests against moto and service tests with in-memory fakes, including another user's person ID and deleting the user's own person.
@@ -221,7 +221,7 @@ Total: about 10 working days.
 | A test or tool accidentally writes to the personal AWS account | Tests run inside moto's mock, which blocks real AWS calls; the table script only accepts `asternavium-local-*` names |
 | Birth data leaks into logs or error responses | Validation errors never echo input (Phase 0); domain error messages contain no values; a test asserts that responses and log output from a person create or update contain none of the submitted birth data |
 | Sync `boto3` calls block the event loop | Every repository call runs in a worker thread; a review check that no `async` function calls `boto3` directly |
-| Table definition drifts from the Terraform `data` module in Phase 4 | One table definition in the app; Phase 4, step 7 checks Terraform against it |
+| Table definition drifts from the Terraform `data` module in Phase 3 | One table definition in the app; Phase 3, step 7 checks Terraform against it |
 | Birth data of other people is stored without their knowledge | Persons hold only what a chart needs (label, birth date, time and place); each can be deleted on its own; the consent text and privacy policy cover data about third parties before launch (specification, section 13) |
 | Account deletion stops halfway (many messages, throttling) | Batched deletes with retries of unprocessed items; the operation is idempotent, so a repeat finishes it |
 | A user's birth place is missing from the dataset | The `cities500` list covers only places with a known population of 500 or more, so most villages without a population figure are missing (in Ukraine, about 5,400 of 33,700 populated places are included). Accepted for the MVP: the user picks the nearest town, which shifts coordinates by a few kilometres and keeps the right time zone. A managed geocoding service is to be reconsidered before launch (specification, section 13) |
@@ -231,9 +231,9 @@ Total: about 10 working days.
 ## 9. Out of scope for Phase 1
 
 - `POST /v1/chat`, the agent, the LLM and the checkpoints table (Phase 2)
-- Subscription and quota repositories, the Stripe customer GSI (Phase 6, decisions D4 and D5)
-- Plan, entitlements and quota fields in `GET /v1/me` (Phases 5 and 6)
-- Cognito and real authentication (Phase 5)
-- Any Terraform, Docker image or deployment (Phase 4)
+- Usage counters (Phase 5, decision D4); the Stripe customer GSI, dropped with payments (decision D5)
+- The remaining requests in `GET /v1/me` (Phase 5)
+- Cognito and real authentication (Phase 4)
+- Any Terraform, Docker image or deployment (Phase 3)
 - Street addresses, villages below 500 inhabitants and online geocoding services
-- A limit on persons per user (Phase 6, `persons.max` entitlement) and relation categories for persons (decision D11)
+- A limit on persons per user (Phase 5, from settings) and relation categories for persons (decision D11)

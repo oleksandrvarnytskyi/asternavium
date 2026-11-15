@@ -2,7 +2,7 @@
 
 Oct 22, 2026
 
-The MVP delivers an authenticated AI chat on top of one module, Jyotisha (Vedic astrology, with calculation tools), running serverless on AWS. It is free to use, with a limit of 8 chat requests per day and 30 per month per user. Bukvitsa for Slavic symbolic traditions (curated, source-based knowledge) and paid plans were moved after the MVP on Nov 12, 2026; Western astrology and numerology remain the next modules, then other traditions, learning paths and comparative reports.
+The MVP delivers an authenticated AI chat on top of one module, Jyotisha (Vedic astrology, with calculation tools), running serverless on AWS. It is free to use, with a limit of 8 chat requests per day and 30 per month per user. Bukvitsa for Slavic symbolic traditions (curated, source-based knowledge) and paid plans come after the MVP; Western astrology and numerology remain the next modules, then other traditions, learning paths and comparative reports.
 
 ## 1. MVP scope
 
@@ -82,10 +82,10 @@ Your proposed stack holds up. The main additions are Amazon Cognito for OAuth2/J
 - **Cognito instead of a hand-built OAuth2 server.** It already issues and rotates JWTs, handles social login, password reset and MFA. FastAPI only validates tokens via the JWKS endpoint. Building your own OAuth2 provider is the main security risk to avoid in an MVP.
 - **LangGraph over plain LangChain chains.** You need stateful sessions, tool calls to calculation engines, and resumable threads. LangGraph checkpoints give per-session short-term memory out of the box.
 - **Lambda container image.** LangChain, boto3 and an ephemeris library easily exceed 250 MB unzipped. Add provisioned concurrency only if cold starts hurt.
-- **DynamoDB through `boto3` in a worker thread.** Repository methods are `async` and run their synchronous `boto3` calls with `anyio.to_thread`, so the event loop never blocks. `aioboto3` was not chosen: moto's in-process mock and `langgraph-checkpoint-aws` are built on `boto3`, and the checkpointer uses the same thread pattern (decided in Phase 1).
+- **DynamoDB through `boto3` in a worker thread.** Repository methods are `async` and run their synchronous `boto3` calls with `anyio.to_thread`, so the event loop never blocks. `aioboto3` was not chosen: moto's in-process mock and `langgraph-checkpoint-aws` are built on `boto3`, and the checkpointer uses the same thread pattern.
 - **DynamoDB for both memories.** AWS documents a `DynamoDBSaver` in `langgraph-checkpoint-aws` with TTL, compression and optional S3 offload for large checkpoints; no Redis or VPC is needed in the MVP.
-- **Jyotisha engine: `jyotishganit`.** Charts come from [`jyotishganit`](https://github.com/northtara/jyotishganit) (MIT), which computes positions with Skyfield (MIT) and NASA JPL's DE421 ephemeris (public domain) and adds nakshatras, whole sign houses and Vimshottari dashas. It runs locally, so birth data never leaves the system. It replaced Swiss Ephemeris on Nov 12, 2026, whose free licence is the AGPL. The library is young (beta), so it is wrapped behind the engine's own interface, pinned to an exact version and checked by golden tests, and its data files are bundled instead of downloaded at runtime; if it falls short, the adapter can be replaced by an own engine on Skyfield. Its conventions are the module assumptions: True Chitra Paksha ayanamsa, whole sign houses, mean lunar nodes, Vimshottari dasha with a sidereal year of 365.25636 days. VedAstro.Python was rejected because it sends birth data to its own cloud API.
-- **Proprietary licence.** With no copyleft dependency left, the application is proprietary (all rights reserved) from Nov 12, 2026, instead of the AGPL-3.0; section 14 lists what this changes.
+- **Jyotisha engine: `jyotishganit`.** Charts come from [`jyotishganit`](https://github.com/northtara/jyotishganit) (MIT), which computes positions with Skyfield (MIT) and NASA JPL's DE421 ephemeris (public domain) and adds nakshatras, whole sign houses and Vimshottari dashas. It runs locally, so birth data never leaves the system. It replaces Swiss Ephemeris, whose free licence is the AGPL. The library is young (beta), so it is wrapped behind the engine's own interface, pinned to an exact version and checked by golden tests, and its data files are bundled instead of downloaded at runtime; if it falls short, the adapter can be replaced by an own engine on Skyfield. Its conventions are the module assumptions: True Chitra Paksha ayanamsa, whole sign houses, mean lunar nodes, Vimshottari dasha with a sidereal year of 365.25636 days. VedAstro.Python was rejected because it sends birth data to its own cloud API.
+- **Proprietary licence.** With no copyleft dependency left, the application is proprietary (all rights reserved) instead of the AGPL-3.0; section 14 lists what this changes.
 
 ## 3. Architecture
 
@@ -97,7 +97,7 @@ There are two repositories: `asternavium` (application code and the image pipeli
 
 ### Bukvitsa service (after the MVP)
 
-Moved after the MVP on Nov 12, 2026; the design is kept so the work can start without rework. The `bukvitsa` value stays in the code's module and tradition enums, and chat refuses it with `422 module_unavailable` until the module exists.
+Moved after the MVP; the design is kept so the work can start without rework. The `bukvitsa` value stays in the code's module and tradition enums, and chat refuses it with `422 module_unavailable` until the module exists.
 
 The Bukvitsa module, covering the Slavic symbolic traditions, is a separate service, so its content, release cycle and licence do not depend on the main application. It is knowledge-first: the traditions it covers are unevenly documented and often reconstructed, so it serves curated, sourced entries with their reliability noted, and the agent must not invent calculation rules.
 
@@ -372,7 +372,7 @@ Aim for 80% coverage on `services/` and `domain/`; do not chase coverage on glue
 
 ## 12. Step-by-step implementation
 
-Eight phases. Phases 1 and 2 build the core functionality (data layer and sessions, then chat with the Jyotisha engine) and run it locally; Phase 3 sets up AWS and deploys everything built so far to `dev`; from then on, every phase ends with something deployed and testable in `dev`. After the foundation come authentication, observability and usage limits, email notifications, then hardening. The Bukvitsa service and paid plans were removed from the MVP on Nov 12, 2026 (section 1). The phases assume one backend developer working mostly in sequence.
+Eight phases. Phases 1 and 2 build the core functionality (data layer and sessions, then chat with the Jyotisha engine) and run it locally; Phase 3 sets up AWS and deploys everything built so far to `dev`; from then on, every phase ends with something deployed and testable in `dev`. After the foundation come authentication, observability and usage limits, email notifications, then hardening. The Bukvitsa service and paid plans come after the MVP (section 1). The phases assume one backend developer working mostly in sequence.
 
 **Local development until Phase 3.** The app runs on the developer's machine against a personal AWS account, accessed with an access-key profile, in `eu-central-1`. That account is used only for Amazon Bedrock and for on-demand DynamoDB tables named `asternavium-local-*`, which a script in the app repository creates with the same keys, indexes and TTL as the Terraform `data` module will. Tests never call AWS: they use moto, and LLM tests use fake chat models. Phase 3 replaces this setup with AWS Organizations, IAM Identity Center and Terraform, following best practices, and retires the personal account from the project.
 
@@ -395,7 +395,7 @@ Eight phases. Phases 1 and 2 build the core functionality (data layer and sessio
 
 **Done when:** sessions can be created and listed per test user, and cross-user access returns `404` (`204` for a delete, which changes nothing), so a session's existence is not revealed.
 
-**Status:** done on Nov 11, 2026. The exit criteria were checked against the `asternavium-local-app` table with two test users, through HTTP calls and in Swagger UI. The detailed steps and decisions are in `phase-1-implementation-plan.md`.
+**Status:** done. The exit criteria were checked against the `asternavium-local-app` table with two test users, through HTTP calls and in Swagger UI. The detailed steps and decisions are in `phase-1-implementation-plan.md`.
 
 **Web client from this phase:** Swagger UI (`/docs`), enabled in `dev` and disabled in `prod`. It uses the dev identity until Phase 4 adds the Cognito Authorize button.
 
@@ -476,7 +476,7 @@ Production web client, in parallel with the module work: React with assistant-ui
 | Decision | Recommendation | Why it matters |
 | --- | --- | --- |
 | LLM provider | Amazon Bedrock | Affects IAM, cost, model choice and data residency |
-| Ephemeris library | `jyotishganit` (MIT; Skyfield and NASA JPL DE421), decided Nov 12, 2026 | Replaces Swiss Ephemeris, so no copyleft licence is needed and the application is proprietary; see sections 2 and 14 |
+| Ephemeris library | `jyotishganit` (MIT; Skyfield and NASA JPL DE421) | Replaces Swiss Ephemeris, so no copyleft licence is needed and the application is proprietary; see sections 2 and 14 |
 | Web client | Swagger UI (Phase 1), Gradio test client (Phase 2), React with assistant-ui after the MVP | Defines CORS and token handling |
 | CI/CD system | GitHub Actions with OIDC | Skip if your code lives elsewhere (GitLab, CodePipeline) |
 | AWS region | `eu-central-1` (Frankfurt), decided | Fixes where data lives and which Bedrock models are available |
@@ -520,7 +520,7 @@ Other statements (Cognito, SES) come from general knowledge as of October 2026 a
 
 ## 14. Licence and third-party notices
 
-AsterNavium is proprietary software (all rights reserved) from Nov 12, 2026. It was published under the AGPL-3.0 while Swiss Ephemeris was the planned engine, because the free Swiss Ephemeris licence is the AGPL; that requirement ended with the switch to `jyotishganit` (section 2). This section is an engineering checklist, not legal advice; have a lawyer review it before launch.
+AsterNavium is proprietary software (all rights reserved). It was published under the AGPL-3.0 while Swiss Ephemeris was the planned engine, because the free Swiss Ephemeris licence is the AGPL; that requirement ended with the switch to `jyotishganit` (section 2). This section is an engineering checklist, not legal advice; have a lawyer review it before launch.
 
 ### In the repository
 

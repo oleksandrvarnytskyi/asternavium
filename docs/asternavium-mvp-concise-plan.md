@@ -2,7 +2,7 @@
 
 Oct 22, 2026
 
-The AsterNavium MVP ships as an API-first, free AI chat over one module, Jyotisha, on a serverless AWS stack, with a limit of 8 chat requests per day and 30 per month per user. Bukvitsa (the Slavic symbolic traditions) and paid plans come after the MVP (decided Nov 12, 2026); Western astrology is the next module, then others; the platform's modular shape means none of them needs a redesign. Technical detail is in the detailed specification (`asternavium-mvp-specification.md`).
+The AsterNavium MVP ships as an API-first, free AI chat over one module, Jyotisha, on a serverless AWS stack, with a limit of 8 chat requests per day and 30 per month per user. Bukvitsa (the Slavic symbolic traditions) and paid plans come after the MVP; Western astrology is the next module, then others; the platform's modular shape means none of them needs a redesign. Technical detail is in the detailed specification (`asternavium-mvp-specification.md`).
 
 ## 1. What the MVP takes from the platform vision
 
@@ -33,7 +33,7 @@ The AsterNavium MVP ships as an API-first, free AI chat over one module, Jyotish
 
 **Environments:** `dev` and `prod` in separate AWS accounts, both in `eu-central-1` (Frankfurt), each with its own Cognito, Datadog tags and pipeline. `dev` deploys on every merge; `prod` deploys on a release tag after manual approval. Phases 1 and 2 run locally, using a personal AWS account only for Bedrock and DynamoDB; the `dev` account, Terraform and pipelines arrive in Phase 3. All prod setup happens in Phase 7, after the MVP is implemented and tested in dev.
 
-**Licence:** proprietary, all rights reserved, from Nov 12, 2026 (until then AGPL-3.0, required by the planned Swiss Ephemeris engine, which `jyotishganit` replaced). `NOTICE` keeps the third-party licence notices and data attributions (GeoNames, NASA JPL, Hipparcos), and every new dependency must have a permissive licence. Details are in section 14 of the detailed specification.
+**Licence:** proprietary, all rights reserved. `NOTICE` keeps the third-party licence notices and data attributions (GeoNames, NASA JPL, Hipparcos), and every new dependency must have a permissive licence. Details are in section 14 of the detailed specification.
 
 **Bukvitsa service (after the MVP):** the Slavic symbolic traditions will run as a separate service, Bukvitsa, in its own repository (`asternavium-bukvitsa`): a read-only API over curated, sourced entries that the main API calls as an agent tool. Its content and licence stay independent of the AGPL application, subject to legal confirmation. It is planned for after the MVP; its design is kept in section 3 of the detailed specification.
 
@@ -55,12 +55,12 @@ Build order: core functionality first (data layer and sessions, then chat with t
 ## 4. Decisions needed before starting
 
 - LLM provider: Amazon Bedrock
-- Jyotisha engine: `jyotishganit` (MIT) instead of Swiss Ephemeris; the application is proprietary (decided Nov 12, 2026)
+- Jyotisha engine: `jyotishganit` (MIT) instead of Swiss Ephemeris; the application is proprietary
 - CI/CD system: GitHub Actions with AWS OIDC (assumed)
-- AWS region: `eu-central-1` (Frankfurt) for `dev` and `prod` (decided)
-- AWS access for Phases 1 and 2: the developer's personal AWS account with access keys, used only for Bedrock and script-created `asternavium-local-*` DynamoDB tables in `eu-central-1`; tests use moto and never call AWS. Replaced in Phase 3 by AWS Organizations, IAM Identity Center and Terraform (decided)
-- Lambda architecture: `arm64` (Graviton), lower price per GB-second than `x86_64` (decided)
-- Datadog: EU site (`datadoghq.eu`), set up in Phase 5, after authentication; until then, JSON logs on the console locally (Phases 1 and 2), then CloudWatch Logs and the built-in Lambda and API Gateway metrics in `dev` (decided)
+- AWS region: `eu-central-1` (Frankfurt) for `dev` and `prod`
+- AWS access for Phases 1 and 2: the developer's personal AWS account with access keys, used only for Bedrock and script-created `asternavium-local-*` DynamoDB tables in `eu-central-1`; tests use moto and never call AWS. Replaced in Phase 3 by AWS Organizations, IAM Identity Center and Terraform
+- Lambda architecture: `arm64` (Graviton), lower price per GB-second than `x86_64`
+- Datadog: EU site (`datadoghq.eu`), set up in Phase 5, after authentication; until then, JSON logs on the console locally (Phases 1 and 2), then CloudWatch Logs and the built-in Lambda and API Gateway metrics in `dev`
 - Production web client (React with assistant-ui): who builds it, and when
 
 * Jyotisha settings: ayanamsa, house system, dasha variant, source texts
